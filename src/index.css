@@ -1,0 +1,18 @@
+/* Leaflet CSS must be first */
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reusable subtle jiggle for drag interactions */
+@keyframes jiggle {
+	0% { transform: rotate(-0.6deg) translateY(-0.3px); }
+	50% { transform: rotate(0.6deg) translateY(0.3px); }
+	100% { transform: rotate(-0.6deg) translateY(-0.3px); }
+}
+
+.animate-jiggle {
+	animation: jiggle 0.25s ease-in-out infinite;
+	will-change: transform;
+}

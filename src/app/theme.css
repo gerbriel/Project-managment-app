@@ -1,0 +1,40 @@
+/* Base font */
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell,
+    Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+/* Light theme variables (optional, primarily for CSS-var consumers) */
+:root {
+  color-scheme: light;
+  --color-primary:#727cf5;
+  --color-success:#0acf97;
+  --color-info:#39afd1;
+  --color-warning:#ffbc00;
+  --color-danger:#fa5c7c;
+  --bg:#ffffff;
+  --bg-card:#ffffff;
+  --fg:#1f2437;
+  --fg-muted:#5b627a;
+  --border:#e7eaf3;
+}
+
+/* Dark theme overrides */
+.dark {
+  color-scheme: dark;
+  --bg:#0f1221;
+  --bg-card:#1b2135;
+  --fg:#e6e9f5;
+  --fg-muted:#a9b0c7;
+  --border:#2a3050;
+}
+
+/* Bridge utilities for legacy classes used around the app */
+.bg-app { background-color: var(--bg); }
+.bg-surface { background-color: var(--bg-card); }
+.bg-surface-2 { background-color: color-mix(in oklab, var(--bg-card), transparent 10%); }
+.text-app { color: var(--fg); }
+.text-muted { color: var(--fg-muted); }
+.border-app { border-color: var(--border); }
+.accent { color: var(--color-primary); }
+.bg-accent { background-color: var(--color-primary); }
