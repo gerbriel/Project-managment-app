@@ -2,108 +2,95 @@
 
 ## Pre-deployment Setup
 
-### 1. Configure Supabase for GitHub Pages
+### 1. Configure Supabase for GitHub Pages (CRITICAL STEP)
 
-In your Supabase dashboard:
+In your Supabase dashboard (https://supabase.com/dashboard):
 
-1. Go to **Settings** → **API**
-2. Under **Site URL**, add your GitHub Pages URL:
-   ```
-   https://gerbriel.github.io/Project-managment-app
-   ```
-3. Under **Additional URLs**, also add:
+1. **Go to Settings → API**
+2. **Site URL**: Replace the default with:
    ```
    https://gerbriel.github.io
    ```
-4. Go to **Authentication** → **URL Configuration**
-5. Add your GitHub Pages URL to the **Redirect URLs**:
+3. **Additional URLs**: Add both:
+   ```
+   https://gerbriel.github.io/Project-managment-app
+   https://gerbriel.github.io/Project-managment-app/
+   ```
+
+4. **Go to Authentication → URL Configuration**
+5. **Redirect URLs**: Add:
    ```
    https://gerbriel.github.io/Project-managment-app/**
    ```
 
-### 2. Set Up Environment Variables
+### 2. Set Up GitHub Repository Secrets
 
-For production deployment, you have several options:
+1. Go to your GitHub repository: `https://github.com/gerbriel/Project-managment-app`
+2. Click **Settings** → **Secrets and variables** → **Actions**
+3. Click **"New repository secret"** and add:
 
-#### Option A: Use GitHub Secrets (Recommended)
-1. Go to your GitHub repository → Settings → Secrets and variables → Actions
-2. Add these secrets:
-   - `VITE_SUPABASE_URL`: Your Supabase project URL
-   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon key
+   **Secret 1:**
+   - Name: `VITE_SUPABASE_URL`
+   - Secret: `https://lvplhlzzwtrqjdxhjrkd.supabase.co` (your actual URL)
 
-#### Option B: Create .env.production file
-1. Copy `.env.production.example` to `.env.production`
-2. Fill in your production values
-3. **⚠️ WARNING**: Do NOT commit this file with real credentials
+   **Secret 2:**
+   - Name: `VITE_SUPABASE_ANON_KEY`
+   - Secret: Your Supabase anon key (starts with `eyJ...`)
 
 ### 3. Enable GitHub Pages
 
-1. Go to your repository → Settings → Pages
-2. Select **Source**: Deploy from a branch
-3. Select **Branch**: `gh-pages` (this will be created automatically)
-4. Select **Folder**: `/` (root)
-5. Click **Save**
+1. Go to **Settings** → **Pages**
+2. **Source**: "GitHub Actions"
+3. The workflow will create the `gh-pages` branch automatically
 
-## Deployment Process
+## Current Issues and Solutions
 
-### Automatic Deployment (Recommended)
+### Issue 1: Asset Loading (404 errors)
+The current error `GET https://gerbriel.github.io/src/main.tsx 404` indicates assets aren't loading correctly.
 
-The GitHub Actions workflow will automatically deploy when you push to main:
+**Solution Applied:**
+- Fixed Vite base configuration to use proper mode detection
+- Updated asset paths to be relative
+- Improved build configuration
 
-```bash
-git add .
-git commit -m "fix: configure for GitHub Pages deployment"
-git push origin main
-```
+### Issue 2: Host Validation Failed
+Supabase rejects requests from GitHub Pages domain.
 
-### Manual Deployment
+**Solution Required:**
+1. **MUST UPDATE** Supabase Site URL to: `https://gerbriel.github.io`
+2. **MUST ADD** GitHub Pages domain to allowed URLs
+3. Ensure environment variables are set in GitHub Secrets
 
-If you prefer to deploy manually:
+## Testing the Fix
 
-```bash
-# Build for production
-npm run build
+After making these changes, the deployment should work. You can test by:
 
-# Deploy to gh-pages branch (install gh-pages if needed)
-npm install -g gh-pages
-gh-pages -d dist
-```
+1. **Check if secrets are set:** Go to repository Settings → Secrets and verify both secrets exist
+2. **Trigger new deployment:** Push any change to main branch or manually re-run the GitHub Action
+3. **Monitor the build:** Check the Actions tab for any build errors
+4. **Verify the site:** Visit `https://gerbriel.github.io/Project-managment-app/`
+
+## Immediate Action Required
+
+**You must complete Step 1 (Supabase Configuration) for the site to work!**
+
+The host validation errors will persist until you:
+1. Change your Supabase Site URL to `https://gerbriel.github.io`
+2. Add the GitHub Pages URLs to your allowed URLs list
 
 ## Troubleshooting
 
-### 404 Errors
-- Make sure the `base` path in `vite.config.ts` matches your repository name
-- Ensure GitHub Pages is enabled and pointing to the correct branch
+### If you still get 404 errors:
+- Check if GitHub Actions workflow completed successfully
+- Verify the `dist` folder was created and uploaded
+- Ensure GitHub Pages is set to use GitHub Actions
 
-### Host Validation Failed
-- Add your GitHub Pages URL to Supabase Site URL settings
-- Check that environment variables are properly set
+### If you still get host validation errors:
+- Double-check Supabase Site URL configuration
+- Verify GitHub Secrets are set correctly
+- Check browser console for specific error messages
 
-### Routing Issues
-- The app includes spa-github-pages scripts to handle client-side routing
-- Make sure the `404.html` file is present in the `public` directory
-
-### Environment Variables Not Loading
-- Verify variables are prefixed with `VITE_`
-- Check GitHub Secrets are properly named and accessible
-- Ensure production environment file exists (if using Option B)
-
-## Testing the Deployment
-
-After deployment, your app should be available at:
-```
-https://gerbriel.github.io/Project-managment-app/
-```
-
-Check the browser console for any errors and verify:
-1. The app loads without 404 errors
-2. Supabase connection works (no "Host validation failed" errors)
-3. Routing works when navigating between pages
-4. Environment variables are loaded correctly
-
-## Security Notes
-
-- Never commit real Supabase credentials to the repository
-- Use GitHub Secrets for sensitive environment variables
-- Regularly rotate API keys and credentials
-- Monitor Supabase usage and access logs
+### If the build fails:
+- Check GitHub Actions logs for specific errors
+- Verify Node.js version compatibility
+- Ensure all dependencies are properly installed
