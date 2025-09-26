@@ -10,6 +10,8 @@ import CalendarView from '@pages/CalendarView';
 import DashboardView from '@pages/DashboardView';
 import BoardMap from '@pages/BoardMap';
 
+const basePath = import.meta.env.PROD ? '/Project-managment-app' : '';
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -26,6 +28,8 @@ export const router = createBrowserRouter([
       { path: 'b/:boardId/map', element: <BoardMap /> },
     ],
   },
-]);
+], {
+  basename: basePath
+});
 
 export default router;
