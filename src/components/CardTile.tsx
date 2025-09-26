@@ -7,7 +7,6 @@ type Props = {
   title: string;
   overdue?: boolean;
   card?: CardRow;
-  onQuickEdit?: () => void;
   // Inline title editing support
   editingTitle?: boolean;
   titleInputValue?: string;
@@ -20,7 +19,6 @@ export default function CardTile({
   title,
   overdue,
   card,
-  onQuickEdit,
   editingTitle,
   titleInputValue,
   onTitleInputChange,
@@ -31,6 +29,9 @@ export default function CardTile({
   // Extract phone/email previews from custom fields if present
   let phone: string | undefined;
   let email: string | undefined;
+  const hasLocation = !!(card as any)?.location_lat && !!(card as any)?.location_lng;
+  const locationAddress = (card as any)?.location_address;
+  
   if (card?.card_field_values && Array.isArray(card.card_field_values)) {
     for (const v of card.card_field_values) {
       const def = Array.isArray(v.custom_field_defs) ? v.custom_field_defs[0] : v.custom_field_defs;
@@ -104,54 +105,6 @@ export default function CardTile({
                 <span>{title}</span>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="text-fg-subtle hover:text-fg focus:outline-none focus:ring-0"
-                title="Quick edit"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onQuickEdit?.();
-                }}
-              >
-                <Icon name="edit" size={16} />
-              </button>
-              {card && (
-                <>
-                  <button
-                    type="button"
-                    className="text-fg-subtle hover:text-fg focus:outline-none focus:ring-0"
-                    title="Archive"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const { archiveCard } = await import('@api/cards');
-                        await archiveCard(card.id);
-                        await qc.invalidateQueries({ queryKey: ['cards', card.board_id] });
-                        await qc.invalidateQueries({ queryKey: ['card', card.id] });
-                        await qc.invalidateQueries({ queryKey: ['board-locs', card.board_id] });
-                    }}
-                  >
-                    <Icon name="archive" size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="text-fg-subtle hover:text-danger focus:outline-none focus:ring-0"
-                    title="Delete"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      if (!confirm('Delete this card?')) return;
-                      const { deleteCard } = await import('@api/cards');
-                      await deleteCard(card.id);
-                      await qc.invalidateQueries({ queryKey: ['cards', card.board_id] });
-                      await qc.invalidateQueries({ queryKey: ['card', card.id] });
-                      await qc.invalidateQueries({ queryKey: ['board-locs', card.board_id] });
-                    }}
-                  >
-                    <Icon name="trash" size={16} />
-                  </button>
-                </>
-              )}
-            </div>
           </div>
 
           {/* Labels */}
@@ -187,11 +140,19 @@ export default function CardTile({
             </div>
           )}
 
-          {/* Custom fields preview */}
-          {(phone || email) && (
+          {/* Custom fields preview + Location */}
+          {(phone || email || hasLocation) && (
             <div className="mt-3 text-xs text-fg-muted space-y-1">
               {phone && <div className="flex items-center gap-1"><Icon name="phone" size={14} /> {phone}</div>}
               {email && <div className="flex items-center gap-1"><Icon name="mail" size={14} /> {email}</div>}
+              {hasLocation && (
+                <div className="flex items-center gap-1" title={locationAddress || 'Location set'}>
+                  <Icon name="map-pin" size={14} /> 
+                  <span className="truncate">
+                    {locationAddress || 'Location set'}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

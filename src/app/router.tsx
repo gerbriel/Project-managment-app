@@ -18,6 +18,7 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'dev/status', element: <DevStatus /> },
       { path: 'w/:workspaceId', element: <WorkspacePage /> },
+      { path: 'w/:workspaceId/calendar', element: <CalendarView /> },
       { path: 'b/:boardId/board', element: <BoardPage /> },
       { path: 'b/:boardId/table', element: <TableView /> },
       { path: 'b/:boardId/calendar', element: <CalendarView /> },

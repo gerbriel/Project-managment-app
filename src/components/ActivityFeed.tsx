@@ -40,27 +40,51 @@ function formatActivity(type: string, meta: any, opts?: { listNames?: Record<str
     }
     case 'move.list':
       return `moved card from list ${nameFor(m.fromListId)} to ${nameFor(m.toListId)}`;
+    case 'move.board':
+      return `moved card from board "${m.fromBoardName ?? m.fromBoardId ?? '—'}" to "${m.toBoardName ?? m.toBoardId ?? '—'}"`;
     case 'label.add':
-      return `added label ${m.labelId ?? ''}`;
+      return `added label "${m.labelName ?? m.labelId ?? ''}"`;
     case 'label.remove':
-      return `removed label ${m.labelId ?? ''}`;
+      return `removed label "${m.labelName ?? m.labelId ?? ''}"`;
     case 'attachment.add':
-      return `added attachment "${m.name ?? ''}"`;
+      return `added attachment "${m.name ?? ''}"${m.size ? ` (${formatFileSize(m.size)})` : ''}`;
     case 'attachment.remove':
       return `removed attachment "${m.name ?? ''}"`;
     case 'attachment.rename':
       return `renamed attachment from "${m.from ?? ''}" to "${m.to ?? ''}"`;
+    case 'member.add':
+      return `added member "${m.memberName ?? m.memberId ?? ''}"`;
+    case 'member.remove':
+      return `removed member "${m.memberName ?? m.memberId ?? ''}"`;
     case 'checklist.add':
-      return `added checklist "${m.title ?? ''}"`;
+      return `added checklist "${m.checklistTitle ?? m.title ?? ''}"`;
+    case 'checklist.remove':
+      return `removed checklist "${m.checklistTitle ?? m.title ?? ''}"`;
     case 'checklist.item.add':
       return `added checklist item "${m.text ?? ''}"`;
     case 'checklist.item.toggle':
-      return `marked checklist item ${m.done ? 'done' : 'not done'}`;
+      return `marked checklist item "${m.text ?? ''}" as ${m.done ? 'done' : 'not done'}`;
     case 'checklist.item.remove':
       return `removed checklist item "${m.text ?? ''}"`;
+    case 'checklist.item.update':
+      return `updated checklist item "${m.text ?? ''}"`;
+    case 'card.archive':
+      return 'archived this card';
+    case 'card.restore':
+      return 'restored this card from archive';
+    case 'card.delete':
+      return 'deleted this card';
     default:
       return `activity: ${type} ${Object.keys(m).length ? `- ${JSON.stringify(m)}` : ''}`;
   }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
 export default function ActivityFeed({ comments, activity, listNames }: Props) {

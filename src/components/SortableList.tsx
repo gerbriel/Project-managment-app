@@ -19,12 +19,16 @@ export default function SortableList({ list, cards, bump }: Props) {
     opacity: isDragging ? 0 : undefined,
   };
 
+  const modalOpen = (typeof window !== 'undefined' && (window as any).__CARD_MODAL_OPEN__) === true;
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      {/* Attach listeners to the whole list block so you can drag from header/empty space */}
-      <div className="focus:outline-none focus:ring-0 cursor-grab active:cursor-grabbing" {...listeners}>
-        <List title={list.name} listId={list.id} cards={cards} bump={bump} />
-      </div>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`relative ${modalOpen ? '' : ''} ${isDragging && !modalOpen ? 'animate-jiggle' : ''}`}
+      {...(modalOpen ? {} : attributes)}
+      {...(modalOpen ? {} : listeners)}
+    >
+      <List title={list.name} listId={list.id} cards={cards} bump={bump} />
     </div>
   );
 }

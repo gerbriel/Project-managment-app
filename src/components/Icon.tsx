@@ -4,8 +4,10 @@ type IconName =
   | 'board'
   | 'table'
   | 'calendar'
+  | 'calendar-stack'
   | 'dashboard'
   | 'map'
+  | 'map-pin'
   | 'edit'
   | 'archive'
   | 'trash'
@@ -14,7 +16,10 @@ type IconName =
   | 'phone'
   | 'mail'
   | 'arrow-right'
-  | 'x';
+  | 'x'
+  | 'plus'
+  | 'more'
+  | 'menu';
 
 type Props = {
   name: IconName;
@@ -59,6 +64,15 @@ export default function Icon({ name, size = 18, className, strokeWidth = 1.75 }:
           <path d="M16 3v4M8 3v4M3 11h18" />
         </svg>
       );
+    case 'calendar-stack':
+      return (
+        <svg {...common}>
+          <rect x="4" y="6" width="16" height="14" rx="2" fill="none" />
+          <path d="M14 4v4M10 4v4M4 12h16" />
+          <rect x="2" y="4" width="16" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.2" />
+          <path d="M12 2v4M8 2v4M2 10h16" strokeWidth="1.2" />
+        </svg>
+      );
     case 'dashboard':
       return (
         <svg {...common}>
@@ -70,6 +84,13 @@ export default function Icon({ name, size = 18, className, strokeWidth = 1.75 }:
         <svg {...common}>
           <path d="M12 21s7-5.373 7-11a7 7 0 10-14 0c0 5.627 7 11 7 11z" />
           <circle cx="12" cy="10" r="2.5" />
+        </svg>
+      );
+    case 'map-pin':
+      return (
+        <svg {...common}>
+          <path d="M12 21s7-5.373 7-11a7 7 0 10-14 0c0 5.627 7 11 7 11z" />
+          <circle cx="12" cy="10" r="1.5" />
         </svg>
       );
     case 'edit':
@@ -131,6 +152,26 @@ export default function Icon({ name, size = 18, className, strokeWidth = 1.75 }:
       return (
         <svg {...common}>
           <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      );
+    case 'plus':
+      return (
+        <svg {...common}>
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      );
+    case 'more':
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="1" />
+          <circle cx="12" cy="5" r="1" />
+          <circle cx="12" cy="19" r="1" />
+        </svg>
+      );
+    case 'menu':
+      return (
+        <svg {...common}>
+          <path d="M3 6h18M3 12h18M3 18h18" />
         </svg>
       );
     default:

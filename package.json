@@ -1,5 +1,5 @@
 {
-  "name": "qmc-kanban",
+  "name": "southelm",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
-    "seed": "node scripts/seed.cjs"
+    "seed": "node scripts/seed.cjs",
+    "migrate": "node scripts/migrate.cjs",
+    "setup:demo": "node scripts/migrate.cjs && node scripts/seed.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

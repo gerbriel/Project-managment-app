@@ -1,6 +1,6 @@
 import React from 'react';
 import { getSupabase } from '@app/supabaseClient';
-import { getMyBoards } from '@api/boards';
+import { getBoards } from '@api/boards';
 
 export default function DevStatus() {
   const [envOk, setEnvOk] = React.useState(false);
@@ -17,7 +17,7 @@ export default function DevStatus() {
         const sb = getSupabase();
         const { data } = await sb.auth.getSession();
         setSession(data.session ?? null);
-        const boards = await getMyBoards();
+        const boards = await getBoards('2a8f10d6-4368-43db-ab1d-ab783ec6e935');
         setBoardsCount(boards.length);
       } catch (e) {
         console.error(e);

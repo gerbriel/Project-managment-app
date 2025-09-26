@@ -10,9 +10,10 @@ type Props = {
   workspaceId?: string;
   cardId?: string;
   onUploaded?: () => Promise<void> | void;
+  registerOpenPicker?: (fn: () => void) => void;
 };
 
-export default function AttachmentList({ attachments, onAddUrl, onRemove, workspaceId, cardId, onUploaded }: Props) {
+export default function AttachmentList({ attachments, onAddUrl, onRemove, workspaceId, cardId, onUploaded, registerOpenPicker }: Props) {
   const [name, setName] = React.useState('');
   const [url, setUrl] = React.useState('');
   const [pending, setPending] = React.useState(false);
@@ -29,6 +30,11 @@ export default function AttachmentList({ attachments, onAddUrl, onRemove, worksp
       setPending(false);
     }
   };
+
+  React.useEffect(() => {
+    if (!registerOpenPicker) return;
+    registerOpenPicker(() => fileRef.current?.click());
+  }, [registerOpenPicker]);
 
   return (
     <div className="space-y-3">

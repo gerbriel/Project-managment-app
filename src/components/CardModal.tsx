@@ -10,10 +10,13 @@ import DateRangePicker from './DateRangePicker';
 import DescriptionEditor from './DescriptionEditor';
 import LocationBlock from './LocationBlock';
 import CustomFieldsEditor from './CustomFieldsEditor';
+import MembersPicker from './MembersPicker';
 import AttachmentList from './AttachmentList';
 import ChecklistGroup from './ChecklistGroup';
 import CommentComposer from './CommentComposer';
 import ActivityFeed from './ActivityFeed';
+import MoveCardDialog from './MoveCardDialog';
+import { logCardStateChange } from '../api/activityLogger';
 
 type Props = {
   cardId: ID;
@@ -24,6 +27,8 @@ type Props = {
 
 export default function CardModal({ cardId, boardId, initialTitle, onClose }: Props) {
   const [title, setTitle] = React.useState(initialTitle);
+  const [showMoveDialog, setShowMoveDialog] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const qc = useQueryClient();
   const sb = getSupabase();
   const lastSavedTitleRef = React.useRef<string>((initialTitle || '').trim());
@@ -35,7 +40,7 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
       const { data, error } = await sb
         .from('cards')
         .select(`
-          id, workspace_id, board_id, list_id, title, description, date_start, date_end, position, created_by, created_at, updated_at,
+          id, workspace_id, board_id, list_id, title, description, location_lat, location_lng, location_address, date_start, date_end, position, created_by, created_at, updated_at,
           board:boards(id, name, lists:lists(id, name)),
           card_field_values:card_field_values(field_id, value, custom_field_defs:custom_field_defs(name)),
           card_labels:card_labels(label_id, labels:labels(id, name, color)),
@@ -85,20 +90,19 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
       if (cl.label_id) selectedLabelIds.push(cl.label_id);
     }
   }
+  
+  // Check if this card is on an Archive board
+  const isOnArchiveBoard = (card as any)?.board?.name === 'Archive';
 
   const saveMutation = useMutation({
     mutationFn: async (newTitle: string) => {
       const supabase = getSupabase();
+      const oldTitle = detailsQuery.data?.title || initialTitle || '';
       const { error } = await supabase.from('cards').update({ title: newTitle }).eq('id', cardId);
       if (error) throw error;
-      // best-effort activity log (ignore RLS errors)
-      void (async () => {
-        try {
-          await supabase.from('activity').insert({ card_id: cardId, type: 'update.title', meta: { title: newTitle } });
-        } catch {
-          // ignore
-        }
-      })();
+      // Log activity with proper old/new values
+      const { logTitleUpdate } = await import('../api/activityLogger');
+      await logTitleUpdate(cardId, oldTitle, newTitle);
     },
     onSuccess: async () => {
       // Refresh card queries for this board
@@ -137,15 +141,29 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
   const addAttachmentUrl = async (name: string, url: string, mime = 'application/octet-stream') => {
     const supabase = getSupabase();
     const size = 0;
-    const { error } = await supabase.from('attachments').insert({ card_id: cardId, name, url, mime, size, added_by: (await supabase.auth.getUser()).data.user?.id });
+    const { data, error } = await supabase.from('attachments').insert({ card_id: cardId, name, url, mime, size, added_by: (await supabase.auth.getUser()).data.user?.id }).select('id').single();
     if (error) throw error;
+    
+    // Log activity
+    const { logAttachmentOperation } = await import('../api/activityLogger');
+    await logAttachmentOperation(cardId, 'add', name, data?.id, url, size);
+    
     await qc.invalidateQueries({ queryKey: ['card', cardId] });
     await qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'cards' });
   };
   const removeAttachment = async (attachmentId: ID) => {
     const supabase = getSupabase();
+    
+    // Get attachment name before deletion for logging
+    const { data: attachment } = await supabase.from('attachments').select('name').eq('id', attachmentId).single();
+    
     const { error } = await supabase.from('attachments').delete().eq('id', attachmentId);
     if (error) throw error;
+    
+    // Log activity
+    const { logAttachmentOperation } = await import('../api/activityLogger');
+    await logAttachmentOperation(cardId, 'remove', attachment?.name || 'Unknown', attachmentId);
+    
     await qc.invalidateQueries({ queryKey: ['card', cardId] });
     await qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'cards' });
   };
@@ -153,8 +171,17 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
   // Checklist handlers
   const toggleChecklistItem = async (itemId: ID, done: boolean) => {
     const supabase = getSupabase();
+    
+    // Get item details before update for logging
+    const { data: item } = await supabase.from('checklist_items').select('text, checklist_id').eq('id', itemId).single();
+    
     const { error } = await supabase.from('checklist_items').update({ done }).eq('id', itemId);
     if (error) throw error;
+    
+    // Log activity
+    const { logChecklistItemOperation } = await import('../api/activityLogger');
+    await logChecklistItemOperation(cardId, 'toggle', itemId, item?.text || 'Unknown item', done, item?.checklist_id);
+    
     await qc.invalidateQueries({ queryKey: ['card', cardId] });
   };
   const addChecklistItem = async (checklistId: ID, text: string) => {
@@ -162,8 +189,13 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
     // compute position at end
     const current = card?.checklists?.find((c) => c.id === checklistId)?.checklist_items ?? [];
     const pos = (current[current.length - 1]?.position ?? 0) + 1;
-    const { error } = await supabase.from('checklist_items').insert({ checklist_id: checklistId, text, done: false, position: pos });
+    const { data, error } = await supabase.from('checklist_items').insert({ checklist_id: checklistId, text, done: false, position: pos }).select('id').single();
     if (error) throw error;
+    
+    // Log activity
+    const { logChecklistItemOperation } = await import('../api/activityLogger');
+    await logChecklistItemOperation(cardId, 'add', data?.id || '', text, false, checklistId);
+    
     await qc.invalidateQueries({ queryKey: ['card', cardId] });
   };
 
@@ -171,10 +203,22 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
     const supabase = getSupabase();
     const current = card?.checklists ?? [];
     const pos = (current[current.length - 1]?.position ?? 0) + 1;
-    const { error } = await supabase.from('checklists').insert({ card_id: cardId, title: 'Checklist', position: pos });
+    const title = 'Checklist';
+    const { data, error } = await supabase.from('checklists').insert({ card_id: cardId, title, position: pos }).select('id').single();
     if (error) throw error;
+    
+    // Log activity
+    const { logChecklistOperation } = await import('../api/activityLogger');
+    await logChecklistOperation(cardId, 'add', data?.id || '', title);
+    
     await qc.invalidateQueries({ queryKey: ['card', cardId] });
   };
+
+  // Members placeholder
+  const [showMembers, setShowMembers] = React.useState(false);
+
+  // Attachment picker bridge
+  const openUploadRef = React.useRef<null | (() => void)>(null);
 
   // Archive/Delete handlers
   const archive = async () => {
@@ -199,6 +243,152 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
     if (error) throw error;
     await qc.invalidateQueries({ queryKey: ['card', cardId] });
     await qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'cards' });
+  };
+
+  // Archive card (move to Archive board)
+  const archiveCard = async () => {
+    try {
+      const supabase = getSupabase();
+      const { data: workspaces } = await supabase.from('workspaces').select('id').limit(1);
+      if (!workspaces?.[0]) return;
+      
+      // Find or create Archive board
+      let { data: archiveBoards } = await supabase
+        .from('boards')
+        .select('id, lists:lists(id)')
+        .eq('workspace_id', workspaces[0].id)
+        .eq('name', 'Archive');
+      
+      let archiveBoardId: ID;
+      let archiveListId: ID;
+      
+      if (!archiveBoards?.[0]) {
+        // Create Archive board
+        const { data: newBoard } = await supabase
+          .from('boards')
+          .insert({ workspace_id: workspaces[0].id, name: 'Archive' })
+          .select('id')
+          .single();
+        if (!newBoard) throw new Error('Failed to create Archive board');
+        
+        // Create a default list in the Archive board
+        const { data: newList } = await supabase
+          .from('lists')
+          .insert({ board_id: newBoard.id, name: 'Archived Cards', position: 0 })
+          .select('id')
+          .single();
+        if (!newList) throw new Error('Failed to create Archive list');
+        
+        archiveBoardId = newBoard.id;
+        archiveListId = newList.id;
+      } else {
+        archiveBoardId = archiveBoards[0].id;
+        const lists = (archiveBoards[0] as any).lists;
+        if (!lists?.[0]) {
+          // Create a default list if none exists
+          const { data: newList } = await supabase
+            .from('lists')
+            .insert({ board_id: archiveBoardId, name: 'Archived Cards', position: 0 })
+            .select('id')
+            .single();
+          if (!newList) throw new Error('Failed to create Archive list');
+          archiveListId = newList.id;
+        } else {
+          archiveListId = lists[0].id;
+        }
+      }
+      
+      // Move card to Archive
+      const { error } = await supabase
+        .from('cards')
+        .update({ board_id: archiveBoardId, list_id: archiveListId })
+        .eq('id', cardId);
+      
+      if (error) throw error;
+      
+      // Log activity
+      await logCardStateChange(cardId, 'archive');
+      
+      // Refresh queries and close modal
+      await qc.invalidateQueries({ queryKey: ['cards', boardId] });
+      await qc.invalidateQueries({ queryKey: ['card', cardId] });
+      onClose?.();
+      
+    } catch (error) {
+      console.error('Failed to archive card:', error);
+      alert('Failed to archive card. Please try again.');
+    }
+  };
+
+  // Restore card from Archive
+  const restoreCard = async () => {
+    try {
+      const supabase = getSupabase();
+      const { data: workspaces } = await supabase.from('workspaces').select('id').limit(1);
+      if (!workspaces?.[0]) return;
+      
+      // Find the first non-Archive board
+      const { data: boards } = await supabase
+        .from('boards')
+        .select('id, name, lists:lists(id)')
+        .eq('workspace_id', workspaces[0].id)
+        .neq('name', 'Archive')
+        .limit(1);
+      
+      if (!boards?.[0]) {
+        alert('No boards available to restore the card to.');
+        return;
+      }
+      
+      const targetBoard = boards[0];
+      const lists = (targetBoard as any).lists;
+      if (!lists?.[0]) {
+        alert('The target board has no lists. Please create a list first.');
+        return;
+      }
+      
+      // Move card to first list of first non-Archive board
+      const { error } = await supabase
+        .from('cards')
+        .update({ board_id: targetBoard.id, list_id: lists[0].id })
+        .eq('id', cardId);
+      
+      if (error) throw error;
+      
+      // Log activity
+      await logCardStateChange(cardId, 'restore');
+      
+      // Refresh queries and close modal
+      await qc.invalidateQueries({ queryKey: ['cards', boardId] });
+      await qc.invalidateQueries({ queryKey: ['card', cardId] });
+      onClose?.();
+      
+    } catch (error) {
+      console.error('Failed to restore card:', error);
+      alert('Failed to restore card. Please try again.');
+    }
+  };
+
+  // Delete card permanently
+  const deleteCard = async () => {
+    try {
+      const supabase = getSupabase();
+      
+      // Log activity before deletion
+      await logCardStateChange(cardId, 'delete');
+      
+      // Delete the card (cascade should handle related data)
+      const { error } = await supabase.from('cards').delete().eq('id', cardId);
+      if (error) throw error;
+      
+      // Refresh queries and close modal
+      await qc.invalidateQueries({ queryKey: ['cards', boardId] });
+      onClose?.();
+      
+    } catch (error) {
+      console.error('Failed to delete card:', error);
+      alert('Failed to delete card. Please try again.');
+    }
   };
 
   // Helper: autosave title if changed, then close
@@ -236,6 +426,8 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
     const prevBodyOverflow = body.style.overflow;
     html.style.overflow = 'hidden';
     body.style.overflow = 'hidden';
+    // Add a global class so CSS can disable animations while modal is open
+    html.classList.add('modal-open');
     // Notify globally that a card modal is open
     const setOpen = (open: boolean) => {
       (window as any).__CARD_MODAL_OPEN__ = open;
@@ -247,6 +439,7 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
     return () => {
       html.style.overflow = prevHtmlOverflow;
       body.style.overflow = prevBodyOverflow;
+      html.classList.remove('modal-open');
       setOpen(false);
     };
   }, []);
@@ -255,7 +448,7 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
     <div className="fixed inset-0 z-40">
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative z-10 flex h-full w-full items-center justify-center">
-        <div className="w-[80vw] h-[80vh] max-w-6xl rounded-2xl border border-border bg-bg-card text-fg shadow-card overflow-hidden flex flex-col">
+  <div className="w-[80vw] h-[80vh] max-w-6xl rounded-2xl border border-border bg-bg-card text-fg shadow-card overflow-hidden flex flex-col select-text">
           <div className="flex items-center gap-3 px-5 py-3 border-b border-border bg-bg-card/95 backdrop-blur">
             <input
               value={title}
@@ -273,14 +466,23 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
           <div className="lg:col-span-2">
             {/* Actions row */}
             <div className="mt-1 flex flex-wrap gap-2 text-sm">
-              <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg">+ Add</button>
-              <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg">Checklist</button>
-              <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg">Members</button>
-              <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg">Attachment</button>
+                <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg" onClick={addChecklist}>+ Add</button>
+                <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg" onClick={addChecklist}>Checklist</button>
+                <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg" onClick={() => setShowMembers((v) => !v)}>Members</button>
+                <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg" onClick={() => openUploadRef.current?.()}>Attachment</button>
               <span className="flex-1" />
               <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg" onClick={archive}>Archive</button>
-              <button className="px-2 py-1 rounded border border-danger/40 text-danger hover:text-danger/80" onClick={del}>Delete</button>
+              {isOnArchiveBoard && (
+                <button className="px-2 py-1 rounded border border-danger/40 text-danger hover:text-danger/80" onClick={del}>Delete</button>
+              )}
             </div>
+
+            {showMembers && card?.workspace_id && (
+              <div className="mt-2 rounded border border-border bg-bg-inset p-3 text-sm">
+                <div className="font-medium mb-2">Members</div>
+                <MembersPicker workspaceId={card.workspace_id} cardId={cardId} />
+              </div>
+            )}
 
             {/* Label picker and dates */}
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -336,7 +538,7 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
                   )}
                 </div>
               )}
-              <CustomFieldsEditor />
+              <CustomFieldsEditor workspaceId={card?.workspace_id as any} cardId={cardId} values={card?.card_field_values as any} />
             </div>
 
             {/* Attachments */}
@@ -348,6 +550,7 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
                 onRemove={(id) => removeAttachment(id)}
                 workspaceId={card?.workspace_id}
                 cardId={cardId}
+                registerOpenPicker={(fn) => (openUploadRef.current = fn)}
                 onUploaded={async () => {
                   await qc.invalidateQueries({ queryKey: ['card', cardId] });
                   await qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'cards' });
@@ -359,6 +562,44 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
             <div className="mt-4">
               <div className="text-sm text-fg-muted mb-1">Checklists</div>
               <ChecklistGroup checklists={card?.checklists ?? []} onToggleItem={toggleChecklistItem} onAddItem={addChecklistItem} onAddChecklist={addChecklist} />
+            </div>
+
+            {/* Card Actions */}
+            <div className="mt-4">
+              <div className="text-sm text-fg-muted mb-2">Card Actions</div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowMoveDialog(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+                >
+                  <Icon name="arrow-right" size={14} />
+                  Move Card
+                </button>
+                {!isOnArchiveBoard ? (
+                  <button
+                    onClick={archiveCard}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+                  >
+                    <Icon name="archive" size={14} />
+                    Archive
+                  </button>
+                ) : (
+                  <button
+                    onClick={restoreCard}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+                  >
+                    <Icon name="plus" size={14} />
+                    Restore
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-50 border border-red-200 text-red-700 rounded hover:bg-red-100 transition-colors"
+                >
+                  <Icon name="trash" size={14} />
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
 
@@ -375,6 +616,52 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
           {/* Footer removed: autosave occurs on close via backdrop, X button, or Esc */}
         </div>
       </div>
+      
+      {/* Move Card Dialog */}
+      {showMoveDialog && card && (
+        <MoveCardDialog
+          cardId={cardId}
+          currentBoardId={boardId}
+          currentListId={card.list_id}
+          workspaceId={card.workspace_id}
+          onClose={() => setShowMoveDialog(false)}
+          onMoved={async () => {
+            setShowMoveDialog(false);
+            await qc.invalidateQueries({ queryKey: ['cards', boardId] });
+            await qc.invalidateQueries({ queryKey: ['card', cardId] });
+            onClose?.();
+          }}
+        />
+      )}
+      
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Card</h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to delete this card? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setShowDeleteConfirm(false);
+                  await deleteCard();
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   , document.body);
 }

@@ -1,6 +1,6 @@
-# QMC Kanban (React + Supabase)
+# SouthElm (React + Supabase)
 
-Trello-style multi-board kanban for a workspace. React + TypeScript + Vite, Tailwind (dark), Supabase (Auth, Postgres, Storage, Realtime).
+Project management application with multi-board support. React + TypeScript + Vite, Tailwind (dark), Supabase (Auth, Postgres, Storage, Realtime).
 
 ## Tech
 - React + TypeScript + Vite
@@ -107,7 +107,7 @@ This creates:
 ```zsh
 git init
 git add .
-git commit -m "init: kanban app"
+git commit -m "init: SouthElm project management app"
 git branch -M main
 git remote add origin <your-new-repo-url>
 git push -u origin main

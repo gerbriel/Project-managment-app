@@ -15,7 +15,27 @@ export function getSupabase(): SupabaseClient {
     );
   }
   if (!client) {
-    client = createClient(url, anon, { auth: { persistSession: true, autoRefreshToken: true } });
+    client = createClient(url, anon, { 
+      auth: { 
+        persistSession: true, 
+        autoRefreshToken: true,
+        detectSessionInUrl: false
+      },
+      db: {
+        schema: 'public'
+      },
+      global: {
+        headers: {
+          'X-Client-Info': 'supabase-js-web',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
+      }
+    });
   }
   return client;
 }

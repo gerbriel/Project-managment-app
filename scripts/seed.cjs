@@ -31,7 +31,7 @@ else dotenv.config();
   const uuid = () => crypto.randomUUID();
   const now = new Date();
 
-  console.log('Seeding QMC Kanban demo data...');
+  console.log('Seeding SouthElm demo data...');
 
   // Helper: ensure record exists or create
   async function ensureWorkspace(name) {
@@ -133,8 +133,9 @@ else dotenv.config();
     return data;
   }
 
-  // Demo user (ensure exists) then use their id for membership/comments
+  // Demo users (ensure exists) then use their ids for membership/comments/assignees
   let gladisId;
+  let secondId;
   try {
     const { data: signUp, error: signUpErr } = await sb.auth.admin.createUser({
       email: DEMO_EMAIL,
@@ -164,12 +165,32 @@ else dotenv.config();
     console.warn('Warning: could not update demo user password via admin API. If sign-in fails, reset it in Supabase Auth UI.');
   }
 
+  // Create a second demo user for assignee demo
+  try {
+    const { data: signUp2, error: signUpErr2 } = await sb.auth.admin.createUser({
+      email: 'demo2@example.com',
+      password: DEMO_PASSWORD,
+      email_confirm: true,
+    });
+    if (signUpErr2 && signUpErr2.message && !signUpErr2.message.includes('already registered')) {
+      throw signUpErr2;
+    }
+    if (signUp2?.user) secondId = signUp2.user.id;
+  } catch (e) {
+    const { data: users, error: listErr } = await sb.auth.admin.listUsers();
+    if (listErr) throw listErr;
+    const u = users.users.find((u) => u.email === 'demo2@example.com');
+    if (!u) throw new Error('Failed to ensure second demo user');
+    secondId = u.id;
+  }
+
   // 1) Workspace
   const ws = await ensureWorkspace('Quality Metal Carports');
   const workspaceId = ws.id;
 
-  // 2) Workspace member (Gladis)
+  // 2) Workspace members (Gladis + Second)
   await ensureWorkspaceMember(workspaceId, gladisId, 'admin');
+  await ensureWorkspaceMember(workspaceId, secondId, 'member');
 
   // 3) Boards (requested set)
   const boards = [
@@ -398,6 +419,29 @@ else dotenv.config();
         .from('comments')
         .insert({ card_id: cardId, author_id: gladisId, body: c.body, created_at: c.created_at });
       if (ins) throw ins;
+    }
+  }
+
+  // 7g) Assignees: assign second demo user to the example card if not already (skip gracefully if table missing)
+  {
+    const probe = await sb.from('card_assignees').select('card_id').limit(1);
+    if (probe.error && probe.error.code === 'PGRST205') {
+      console.warn('Skipping assignee seed: table public.card_assignees not found. Apply schema.sql then re-run seed to add demo assignee.');
+    } else if (probe.error && probe.error.code && probe.error.code.startsWith('PGRST')) {
+      // Other PostgREST error
+      console.warn('Skipping assignee seed due to PostgREST error:', probe.error);
+    } else {
+      const { data: exists, error } = await sb
+        .from('card_assignees')
+        .select('card_id, user_id')
+        .eq('card_id', cardId)
+        .eq('user_id', secondId)
+        .maybeSingle();
+      if (error && error.code !== 'PGRST116') throw error;
+      if (!exists) {
+        const { error: ins } = await sb.from('card_assignees').insert({ card_id: cardId, user_id: secondId });
+        if (ins) throw ins;
+      }
     }
   }
 

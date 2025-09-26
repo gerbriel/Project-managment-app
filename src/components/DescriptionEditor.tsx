@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabase } from '../app/supabaseClient';
 import type { ID } from '../types/models';
+import { logDescriptionUpdate } from '../api/activityLogger';
 
 type Props = {
   cardId: ID;
@@ -12,11 +13,19 @@ type Props = {
 
 export default function DescriptionEditor({ cardId, value }: Props) {
   const qc = useQueryClient();
+  const hasChangedRef = React.useRef(false);
+  
   const mu = useMutation({
     mutationFn: async (doc: any) => {
       const sb = getSupabase();
       const { error } = await sb.from('cards').update({ description: doc }).eq('id', cardId);
       if (error) throw error;
+      
+      // Log activity only if content actually changed
+      if (hasChangedRef.current) {
+        await logDescriptionUpdate(cardId);
+        hasChangedRef.current = false;
+      }
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('card') });
@@ -27,6 +36,7 @@ export default function DescriptionEditor({ cardId, value }: Props) {
     extensions: [StarterKit],
     content: value ?? { type: 'doc', content: [{ type: 'paragraph' }] },
     onUpdate: ({ editor }) => {
+      hasChangedRef.current = true;
       const json = editor.getJSON();
       // Debounce save
       debouncedSave(json);

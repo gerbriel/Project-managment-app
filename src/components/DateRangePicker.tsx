@@ -2,6 +2,7 @@ import React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabase } from '../app/supabaseClient';
 import type { ID } from '../types/models';
+import { logDateUpdate } from '../api/activityLogger';
 
 type Props = {
   cardId: ID;
@@ -20,8 +21,16 @@ export default function DateRangePicker({ cardId, start, end }: Props) {
   const mu = useMutation({
     mutationFn: async (payload: { date_start: string | null; date_end: string | null }) => {
       const sb = getSupabase();
+      
+      // Store old values for activity logging
+      const oldStart = start ? start.slice(0, 10) : null;
+      const oldEnd = end ? end.slice(0, 10) : null;
+      
       const { error } = await sb.from('cards').update(payload).eq('id', cardId);
       if (error) throw error;
+      
+      // Log activity
+      await logDateUpdate(cardId, oldStart, payload.date_start, oldEnd, payload.date_end);
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('cards') });

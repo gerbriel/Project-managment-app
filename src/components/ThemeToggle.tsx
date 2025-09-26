@@ -7,7 +7,7 @@ function applyTheme(theme: 'light' | 'dark') {
 }
 
 function getInitialTheme(): 'light' | 'dark' {
-  const saved = localStorage.getItem('qmc-theme');
+  const saved = localStorage.getItem('southelm-theme');
   if (saved === 'light' || saved === 'dark') return saved;
   const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   return prefersDark ? 'dark' : 'light';
@@ -19,7 +19,7 @@ export default function ThemeToggle() {
 
   useEffect(() => {
     applyTheme(theme);
-    localStorage.setItem('qmc-theme', theme);
+    localStorage.setItem('southelm-theme', theme);
   }, [theme]);
 
   return (

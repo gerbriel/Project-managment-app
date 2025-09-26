@@ -5,7 +5,7 @@ import { getListsByBoard } from '@api/lists';
 import { getCardsByBoard, updateCardPosition } from '@api/cards';
 import SortableList from './SortableList';
 import CardTile from './CardTile';
-import { DndContext, DragEndEvent, DragStartEvent, DragOverEvent, PointerSensor, useSensor, useSensors, DragOverlay, closestCenter } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragStartEvent, DragOverEvent, PointerSensor, useSensor, useSensors, DragOverlay, closestCenter, pointerWithin } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { getSupabase } from '../app/supabaseClient';
 import type { CardRow, ListRow } from '../types/dto';
@@ -30,8 +30,8 @@ export default function Board() {
 
   const queryClient = useQueryClient();
   const sensors = useSensors(
-    // Use a short press delay + small tolerance to avoid accidental drags from single clicks or tiny mouse moves
-    useSensor(PointerSensor, { activationConstraint: { delay: 160, tolerance: 8 } })
+    // Distance-based activation so clicks don't start drags; bump to 10px for safety
+    useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
   );
   // Modal-open state must be declared before any early returns to preserve hook order
   const [modalOpen, setModalOpen] = React.useState<boolean>((window as any).__CARD_MODAL_OPEN__ ?? false);
@@ -40,6 +40,15 @@ export default function Board() {
     window.addEventListener('card-modal-toggle', onToggle as any);
     return () => window.removeEventListener('card-modal-toggle', onToggle as any);
   }, []);
+
+  // When modal opens, clear any active drag state and drop indicators so nothing wiggles
+  React.useEffect(() => {
+    if (!modalOpen) return;
+    setActiveDrag(null);
+    setListDropIndex(null);
+    setLastOverId(null);
+    setDropHighlightListId(null);
+  }, [modalOpen]);
   const [activeDrag, setActiveDrag] = React.useState<null | { type: 'card' | 'list'; id: string }>(null);
   const [listDropIndex, setListDropIndex] = React.useState<number | null>(null);
   const [lastOverId, setLastOverId] = React.useState<string | null>(null);
@@ -234,39 +243,9 @@ export default function Board() {
 
   return (
     <div className="p-4 overflow-x-auto">
-  {modalOpen ? (
-        <div className="flex gap-4 min-w-max items-stretch relative">
-          {lists.map((l) => {
-            const lc = cards.filter((c) => c.list_id === l.id);
-            return (
-              <div key={l.id} className="w-80 bg-bg-card text-fg rounded-xl border border-border p-3 shadow-card">
-                <div className="font-medium mb-2 flex items-center justify-between">
-                  <div className="text-left flex-1">{l.name}</div>
-                  <span className="text-fg-subtle">⋮</span>
-                </div>
-                <div className="flex flex-col gap-2 min-h-[20px]">
-                  {lc.length > 0 ? (
-                    lc.map((c) => {
-                      const overdue = Boolean(c.date_end && new Date(c.date_end) < new Date());
-                      return (
-                        <div key={c.id}>
-                          <CardTile title={c.title} overdue={overdue} card={c as any} />
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-xs text-fg-muted">No cards</div>
-                  )}
-                </div>
-                <div className="mt-3 w-full text-left text-fg-muted">+ Add card</div>
-              </div>
-            );
-          })}
-        </div>
-  ) : (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
+  <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
         <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-          <div className="flex gap-4 min-w-max items-stretch relative">
+          <div className={`flex gap-4 min-w-max items-stretch relative ${modalOpen ? 'pointer-events-none select-none' : ''}`}>
             {/* Left-edge indicator when dropping at index 0 */}
             {activeDrag?.type === 'list' && listDropIndex === 0 ? (
               <div className="w-1 self-stretch bg-accent rounded-sm opacity-70" />
@@ -283,14 +262,15 @@ export default function Board() {
             ))}
           </div>
         </SortableContext>
-        <DragOverlay>
-          {activeDrag?.type === 'list'
+        {!modalOpen && (
+          <DragOverlay>
+            {activeDrag?.type === 'list'
             ? (() => {
                 const l = lists.find((x) => x.id === activeDrag.id);
                 if (!l) return null;
                 const lc = cards.filter((c) => c.list_id === l.id);
                 return (
-                  <div className="opacity-90 animate-jiggle pointer-events-none">
+                  <div className={`opacity-90 pointer-events-none ${modalOpen ? '' : 'animate-jiggle'}`}>
                     <div className="w-80 bg-surface rounded-md border border-app p-3">
                       <div className="font-medium mb-2 flex items-center justify-between">
                         <div className="text-left flex-1">{l.name}</div>
@@ -317,7 +297,7 @@ export default function Board() {
                 if (!c) return null;
                 const overdue = Boolean(c.date_end && new Date(c.date_end) < new Date());
                 return (
-                  <div className="opacity-90 animate-jiggle pointer-events-none">
+                  <div className={`opacity-90 pointer-events-none ${modalOpen ? '' : 'animate-jiggle'}`}>
                     <div className="w-72">
                       <CardTile title={c.title} overdue={overdue} card={c as any} />
                     </div>
@@ -325,9 +305,9 @@ export default function Board() {
                 );
               })()
             : null}
-        </DragOverlay>
+          </DragOverlay>
+        )}
       </DndContext>
-  )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import React from 'react';
 import Icon from './Icon';
 import { Link, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { getBoards } from '@api/boards';
 
 type Props = {
   boardId: string;
@@ -9,10 +11,20 @@ type Props = {
 export default function ViewSwitcher({ boardId }: Props) {
   const location = useLocation();
   const [open, setOpen] = React.useState(false);
+  
+  // Get workspace ID dynamically from boards
+  const boardsQuery = useQuery({
+    queryKey: ['boards'],
+    queryFn: () => getBoards('2a8f10d6-4368-43db-ab1d-ab783ec6e935'),
+    retry: 1
+  });
+  
+  const workspaceId = boardsQuery.data?.find(board => board.id === boardId)?.workspace_id || '2a8f10d6-4368-43db-ab1d-ab783ec6e935';
+  
   const items = [
     { key: 'board', name: 'Board', icon: 'board' as const, to: `/b/${boardId}/board` },
-    { key: 'table', name: 'Table', icon: 'table' as const, to: `/b/${boardId}/table` },
     { key: 'calendar', name: 'Calendar', icon: 'calendar' as const, to: `/b/${boardId}/calendar` },
+    { key: 'master-calendar', name: 'Master Calendar', icon: 'calendar-stack' as const, to: `/w/${workspaceId}/calendar` },
     { key: 'dashboard', name: 'Dashboard', icon: 'dashboard' as const, to: `/b/${boardId}/dashboard` },
     { key: 'map', name: 'Map', icon: 'map' as const, to: `/b/${boardId}/map` },
   ];
@@ -27,20 +39,20 @@ export default function ViewSwitcher({ boardId }: Props) {
   const angleFor = (i: number) => (startDeg + (endDeg - startDeg) * (i / steps)) * (Math.PI / 180);
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 select-none">
+    <div className="fixed bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-30 select-none">
       <div className="relative w-[0px] h-[0px]">
         {items.map((it, i) => {
           const a = angleFor(i);
           const x = Math.cos(a) * radius;
           const y = Math.sin(a) * radius;
           const pos = open ? { transform: `translate(${x}px, ${y}px)` } : { transform: 'translate(0px, 0px)' };
-          const cls = 'absolute -translate-x-1/2 -translate-y-1/2 transition-transform duration-200 ease-out';
+          const cls = `absolute -translate-x-1/2 -translate-y-1/2 transition-transform duration-200 ease-out ${!open ? 'opacity-0 pointer-events-none' : 'opacity-100'}`;
           return (
             <Link
               key={it.key}
               to={it.to}
               title={it.name}
-              className={`${cls} w-10 h-10 flex items-center justify-center rounded-full text-lg shadow border will-change-transform hover:scale-110 ${
+              className={`${cls} w-9 md:w-10 h-9 md:h-10 flex items-center justify-center rounded-full text-base md:text-lg shadow border will-change-transform hover:scale-110 ${
                 isActive(it.to)
                   ? 'bg-accent/20 text-accent border-accent/40'
                   : 'bg-surface-2 hover:bg-surface-3 border-app text-muted hover:text-app'
@@ -48,12 +60,12 @@ export default function ViewSwitcher({ boardId }: Props) {
               style={pos as React.CSSProperties}
               onClick={() => setOpen(false)}
             >
-              <Icon name={it.icon} size={18} />
+              <Icon name={it.icon} size={16} />
             </Link>
           );
         })}
         <button
-          className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-accent text-white shadow-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-accent/60"
+          className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 w-10 md:w-12 h-10 md:h-12 rounded-full bg-accent text-white shadow-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-accent/60 text-lg md:text-xl"
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? 'Close view switcher' : 'Open view switcher'}
         >

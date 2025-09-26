@@ -16,3 +16,86 @@
 	animation: jiggle 0.25s ease-in-out infinite;
 	will-change: transform;
 }
+
+/* When card modal is open, disable any jiggle animations globally */
+.modal-open .animate-jiggle {
+	animation: none !important;
+}
+
+/* Calendar grid styles */
+.calendar-grid {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	min-height: 0;
+}
+
+.calendar-day {
+	min-height: 120px;
+	border-right: 1px solid var(--border);
+	border-bottom: 1px solid var(--border);
+}
+
+.calendar-day:nth-child(7n) {
+	border-right: none;
+}
+
+.calendar-row:last-child .calendar-day {
+	border-bottom: none;
+}
+
+/* Drag and drop feedback */
+.drag-over {
+	background-color: var(--color-primary, #727cf5) !important;
+	opacity: 0.1;
+}
+
+.dragging {
+	opacity: 0.5;
+	transform: rotate(2deg);
+}
+
+/* Auto-rows with minimum height */
+.auto-rows-fr {
+	grid-auto-rows: 1fr;
+}
+
+/* Last in row utility */
+.last-in-row:nth-child(7n) {
+	border-right: none;
+}
+
+/* Last row utility - handled by grid positioning */
+.calendar-grid > div:nth-last-child(-n+7) {
+	border-bottom: none;
+}
+
+/* Mobile improvements */
+@media (max-width: 768px) {
+	/* Reduce calendar cell minimum height on mobile */
+	.calendar-day {
+		min-height: 80px;
+	}
+	
+	/* Adjust font sizes for mobile */
+	.calendar-grid {
+		font-size: 0.875rem;
+	}
+	
+	/* Better touch targets */
+	button {
+		min-height: 44px;
+	}
+	
+	/* Improve text readability */
+	body {
+		-webkit-text-size-adjust: 100%;
+	}
+}
+
+@media (max-width: 640px) {
+	/* Even smaller on very small screens */
+	.calendar-day {
+		min-height: 60px;
+		padding: 0.5rem;
+	}
+}
