@@ -1,29 +1,25 @@
-# GitHub Pages Deployment Guide for SouthElm
+# GitHub Pages Deployment Guide for tryed
 
-## Pre-deployment Setup
+## CRITICAL: Supabase Domain Configuration
 
-### 1. Configure Supabase for GitHub Pages (CRITICAL STEP)
+**⚠️ MUST DO FIRST:** Before deployment works, configure Supabase:
 
-In your Supabase dashboard (https://supabase.com/dashboard):
-
-1. **Go to Settings → API**
-2. **Site URL**: Replace the default with:
-   ```
-   https://gerbriel.github.io
-   ```
-3. **Additional URLs**: Add both:
+1. **Go to Supabase Dashboard** → Your Project → **Settings** → **API**
+2. **Site URL**: Change from localhost to: `https://gerbriel.github.io`
+3. **Additional redirect URLs**: Add these **exact URLs**:
    ```
    https://gerbriel.github.io/Project-managment-app
    https://gerbriel.github.io/Project-managment-app/
+   https://gerbriel.github.io/Project-managment-app/**
    ```
 
-4. **Go to Authentication → URL Configuration**
+4. **Go to Authentication** → **URL Configuration**
 5. **Redirect URLs**: Add:
    ```
    https://gerbriel.github.io/Project-managment-app/**
    ```
 
-### 2. Set Up GitHub Repository Secrets
+## GitHub Repository Configuration
 
 1. Go to your GitHub repository: `https://github.com/gerbriel/Project-managment-app`
 2. Click **Settings** → **Secrets and variables** → **Actions**

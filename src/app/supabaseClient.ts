@@ -29,9 +29,11 @@ export function getSupabase(): SupabaseClient {
       },
       global: {
         headers: {
-          'X-Client-Info': 'southelm-web-app',
+          'X-Client-Info': 'tryed-web-app',
           'X-Requested-With': 'XMLHttpRequest',
-          'User-Agent': 'SouthElm/1.0'
+          'User-Agent': 'tryed/1.0',
+          // Add GitHub Pages specific headers
+          'Origin': typeof window !== 'undefined' ? window.location.origin : 'https://gerbriel.github.io'
         }
       },
       realtime: {
