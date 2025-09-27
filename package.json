@@ -14,7 +14,7 @@
     "migrate": "node scripts/migrate.cjs",
     "setup:demo": "node scripts/migrate.cjs && node scripts/seed.cjs",
     "deploy": "npm run build && gh-pages -d dist",
-    "predeploy": "npm run build"
+    "deploy:manual": "gh-pages -d dist"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -46,6 +46,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.7",
+    "gh-pages": "^6.3.0",
     "postcss": "^8.4.38",
     "prettier": "^3.3.3",
     "tailwindcss": "^3.4.10",
