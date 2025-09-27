@@ -21,6 +21,10 @@ export function getSupabase(): SupabaseClient {
     // Determine the current origin for GitHub Pages compatibility
     const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://gerbriel.github.io';
     const isGitHubPages = currentOrigin.includes('github.io');
+    
+    console.log(`Initializing Supabase client for: ${currentOrigin}`);
+    console.log(`Environment: ${import.meta.env.MODE}, GitHub Pages: ${isGitHubPages}`);
+    
     client = createClient(url, anon, { 
       auth: { 
         persistSession: true, 
