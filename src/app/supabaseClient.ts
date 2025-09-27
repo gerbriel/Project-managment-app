@@ -21,9 +21,10 @@ export function getSupabase(): SupabaseClient {
     // Determine the current origin for GitHub Pages compatibility
     const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://gerbriel.github.io';
     const isGitHubPages = currentOrigin.includes('github.io');
+    const isLocalhost = currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1');
     
     console.log(`Initializing Supabase client for: ${currentOrigin}`);
-    console.log(`Environment: ${import.meta.env.MODE}, GitHub Pages: ${isGitHubPages}`);
+    console.log(`Environment: ${import.meta.env.MODE}, GitHub Pages: ${isGitHubPages}, Localhost: ${isLocalhost}`);
     
     client = createClient(url, anon, { 
       auth: { 
@@ -39,12 +40,15 @@ export function getSupabase(): SupabaseClient {
           'X-Client-Info': 'tryed-web-app',
           'X-Requested-With': 'XMLHttpRequest',
           'User-Agent': 'tryed/1.0',
-          // GitHub Pages specific headers
+          // Conditional headers based on environment
           ...(isGitHubPages ? {
             'Origin': currentOrigin,
             'Referer': currentOrigin + '/Project-managment-app/',
             'X-Forwarded-Host': 'gerbriel.github.io',
             'X-GitHub-Pages': 'true'
+          } : isLocalhost ? {
+            'Origin': currentOrigin,
+            'X-Local-Dev': 'true'
           } : {})
         }
       },
