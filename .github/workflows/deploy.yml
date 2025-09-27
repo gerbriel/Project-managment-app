@@ -43,6 +43,13 @@ jobs:
         VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
         VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
 
+    - name: Verify build output
+      run: |
+        echo "Build completed. Checking dist folder:"
+        ls -la dist/
+        echo "Checking for index.html:"
+        cat dist/index.html | head -20
+
     - name: Setup Pages
       uses: actions/configure-pages@v4
 

@@ -18,6 +18,9 @@ export function getSupabase(): SupabaseClient {
   }
   
   if (!client) {
+    // Determine the current origin for GitHub Pages compatibility
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://gerbriel.github.io';
+    const isGitHubPages = currentOrigin.includes('github.io');
     client = createClient(url, anon, { 
       auth: { 
         persistSession: true, 
@@ -32,8 +35,13 @@ export function getSupabase(): SupabaseClient {
           'X-Client-Info': 'tryed-web-app',
           'X-Requested-With': 'XMLHttpRequest',
           'User-Agent': 'tryed/1.0',
-          // Add GitHub Pages specific headers
-          'Origin': typeof window !== 'undefined' ? window.location.origin : 'https://gerbriel.github.io'
+          // GitHub Pages specific headers
+          ...(isGitHubPages ? {
+            'Origin': currentOrigin,
+            'Referer': currentOrigin + '/Project-managment-app/',
+            'X-Forwarded-Host': 'gerbriel.github.io',
+            'X-GitHub-Pages': 'true'
+          } : {})
         }
       },
       realtime: {
