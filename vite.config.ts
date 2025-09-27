@@ -4,6 +4,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig(({ command, mode }) => {
   const base = mode === 'production' ? '/Project-managment-app/' : '/';
+  const timestamp = Date.now();
   
   return {
     plugins: [react(), tsconfigPaths()],
@@ -21,10 +22,10 @@ export default defineConfig(({ command, mode }) => {
       rollupOptions: {
         output: {
           manualChunks: undefined,
-          // Use simpler naming for better GitHub Pages compatibility
-          entryFileNames: 'assets/[name]-[hash].js',
-          chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: 'assets/[name]-[hash].[ext]'
+          // Force cache-busting with timestamp
+          entryFileNames: `assets/[name]-${timestamp}.[hash].js`,
+          chunkFileNames: `assets/[name]-${timestamp}.[hash].js`,
+          assetFileNames: `assets/[name]-${timestamp}.[hash].[ext]`
         }
       },
       // Ensure compatibility with GitHub Pages
