@@ -38,7 +38,7 @@ export default function Topbar() {
   return (
     <div className="h-12 bg-surface border-b border-app flex items-center px-4 gap-3">
       <div className="lg:hidden w-10"></div> {/* Spacer for mobile menu button */}
-      <Link to="/" className="font-semibold accent">SouthElm</Link>
+      <Link to="/" className="font-semibold accent">tryed</Link>
       <div className="ml-auto flex items-center gap-2 md:gap-3">
         {isBoardPage && (
           <>

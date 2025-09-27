@@ -31,7 +31,7 @@ else dotenv.config();
   const uuid = () => crypto.randomUUID();
   const now = new Date();
 
-  console.log('Seeding SouthElm demo data...');
+  console.log('Seeding tryed demo data...');
 
   // Helper: ensure record exists or create
   async function ensureWorkspace(name) {

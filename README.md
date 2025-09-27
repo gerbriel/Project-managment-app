@@ -1,4 +1,4 @@
-# SouthElm (React + Supabase)
+# tryed (React + Supabase)
 
 Project management application with multi-board support. React + TypeScript + Vite, Tailwind (dark), Supabase (Auth, Postgres, Storage, Realtime).
 
@@ -107,7 +107,7 @@ This creates:
 ```zsh
 git init
 git add .
-git commit -m "init: SouthElm project management app"
+git commit -m "init: tryed project management app"
 git branch -M main
 git remote add origin <your-new-repo-url>
 git push -u origin main
