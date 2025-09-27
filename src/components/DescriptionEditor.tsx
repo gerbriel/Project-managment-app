@@ -35,30 +35,35 @@ export default function DescriptionEditor({ cardId, value }: Props) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Enable all StarterKit extensions
+        // Enhanced list configuration
         bulletList: {
           HTMLAttributes: {
-            class: 'list-disc list-inside',
+            class: 'my-2',
           },
         },
         orderedList: {
           HTMLAttributes: {
-            class: 'list-decimal list-inside',
+            class: 'my-2',
+          },
+        },
+        listItem: {
+          HTMLAttributes: {
+            class: 'ml-4 my-1',
           },
         },
         blockquote: {
           HTMLAttributes: {
-            class: 'border-l-4 border-accent pl-4 italic',
+            class: 'border-l-4 border-accent pl-4 py-2 my-2 italic bg-surface/50',
           },
         },
         code: {
           HTMLAttributes: {
-            class: 'bg-surface-2 px-1 py-0.5 rounded text-accent font-mono text-sm',
+            class: 'bg-surface px-1.5 py-0.5 rounded text-accent font-mono text-sm',
           },
         },
         codeBlock: {
           HTMLAttributes: {
-            class: 'bg-surface-2 p-3 rounded font-mono text-sm border border-app',
+            class: 'bg-surface p-3 rounded font-mono text-sm border border-app my-2',
           },
         },
       }),
@@ -72,7 +77,7 @@ export default function DescriptionEditor({ cardId, value }: Props) {
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-invert max-w-none min-h-[120px] p-3 rounded-b border-l border-r border-b border-app bg-surface-2 focus:outline-none focus:ring-2 focus:ring-accent/50',
+        class: 'max-w-none min-h-[120px] p-3 rounded-b border-l border-r border-b border-app bg-surface-2 focus:outline-none focus:ring-2 focus:ring-accent/50',
       },
       handleKeyDown: (view, event) => {
         // Custom keyboard shortcuts
