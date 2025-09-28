@@ -115,6 +115,7 @@ export async function getCardsByBoard(boardId: string): Promise<CardRow[]> {
   const rows = (base.data ?? []) as any[];
 
   // Fetch location fields and merge; if columns don't exist yet, skip silently
+  /* Temporarily disabled until location migration is run
   const loc = await supabase
     .from('cards')
     .select('id, location_lat, location_lng, location_address')
@@ -134,6 +135,7 @@ export async function getCardsByBoard(boardId: string): Promise<CardRow[]> {
     // Surface non-column-related errors
     throw loc.error;
   }
+  */
   return rows as CardRow[];
 }
 
@@ -348,6 +350,7 @@ export async function updateCardLocation(
   
   // Get current location details for activity logging - but handle missing columns gracefully
   let currentCard: any = null;
+  /* Temporarily disabled until location migration is run
   try {
     const { data } = await sb
       .from('cards')
@@ -362,13 +365,21 @@ export async function updateCardLocation(
     }
     // Continue without location data for logging
   }
+  */
   
+  /* Temporarily disabled until location migration is run
   const payload: any = {};
   if (typeof args.lat !== 'undefined') payload.location_lat = args.lat;
   if (typeof args.lng !== 'undefined') payload.location_lng = args.lng;
   if (typeof args.address !== 'undefined') payload.location_address = args.address;
   if (Object.keys(payload).length > 0) payload.updated_at = new Date().toISOString();
+  */
   
+  // Return placeholder until location migration is run
+  console.warn('Location update skipped - location columns not yet migrated');
+  return { skippedDueToMissingColumns: true };
+
+  /* Temporarily commented out until location migration is run
   console.log('updateCardLocation payload:', payload);
   
   // If payload is empty, skip
@@ -418,14 +429,19 @@ export async function updateCardLocation(
     
   } catch (error: any) {
     if (isMissingLocationColumnsError(error)) {
-      console.warn('Location columns missing, skipping location update');
       return { skippedDueToMissingColumns: true };
     }
     throw error;
   }
+  */
 }
 
 export async function getBoardLocations(boardId: ID): Promise<Array<{ id: ID; title: string; lat: number; lng: number }>> {
+  // Temporarily disabled until location migration is run
+  console.warn('getBoardLocations skipped - location columns not yet migrated');
+  return [];
+  
+  /* Commented out until location migration is run
   const sb = getSupabase();
   
   try {
@@ -456,4 +472,5 @@ export async function getBoardLocations(boardId: ID): Promise<Array<{ id: ID; ti
     console.error('getBoardLocations error:', error);
     return []; // Return empty array instead of throwing to prevent breaking the UI
   }
+  */
 }

@@ -254,30 +254,14 @@ export default function DescriptionEditor({ cardId, value }: Props) {
           </button>
         </div>
 
-        {/* Additional Actions */}
+        {/* Clear Formatting */}
         <div className="flex items-center gap-1">
           <button
             className="px-2 py-1 rounded text-sm hover:bg-surface-2"
             onClick={clearFormatting}
             title="Clear formatting (⌘\)"
           >
-            ⌘\
-          </button>
-          <button
-            className="px-2 py-1 rounded text-sm hover:bg-surface-2"
-            onClick={() => editor?.chain().focus().undo().run()}
-            title="Undo (⌘Z)"
-            disabled={!editor?.can().undo()}
-          >
-            ↶
-          </button>
-          <button
-            className="px-2 py-1 rounded text-sm hover:bg-surface-2"
-            onClick={() => editor?.chain().focus().redo().run()}
-            title="Redo (⌘⇧Z)"
-            disabled={!editor?.can().redo()}
-          >
-            ↷
+            Clear formatting
           </button>
         </div>
       </div>
@@ -289,22 +273,6 @@ export default function DescriptionEditor({ cardId, value }: Props) {
       {mu.isPending && (
         <div className="text-xs text-muted mt-1 px-2">Saving…</div>
       )}
-      
-      {/* Help Text */}
-      <div className="text-xs text-muted mt-2 px-2">
-        <details>
-          <summary className="cursor-pointer hover:text-fg">Formatting help</summary>
-          <div className="mt-2 space-y-1">
-            <div><strong>Bold:</strong> **text** or ⌘B</div>
-            <div><strong>Italic:</strong> *text* or ⌘I</div>
-            <div><strong>Strikethrough:</strong> ~~text~~ or ⌘S</div>
-            <div><strong>Code:</strong> `text` or ⌘M</div>
-            <div><strong>Lists:</strong> - for bullets, 1. for numbers</div>
-            <div><strong>Quote:</strong> {`>`} text</div>
-            <div><strong>Code Block:</strong> ``` text ```</div>
-          </div>
-        </details>
-      </div>
     </div>
   );
 }

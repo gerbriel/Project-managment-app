@@ -44,3 +44,35 @@ export async function removeCardLabel(cardId: ID, labelId: ID): Promise<void> {
   // Log activity
   await logLabelOperation(cardId, 'remove', labelId, label?.name, label?.color);
 }
+
+export async function createLabel(workspaceId: ID, name: string, color: string): Promise<WorkspaceLabel> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('labels')
+    .insert({ workspace_id: workspaceId, name: name.trim(), color })
+    .select('id, name, color')
+    .single();
+  if (error) throw error;
+  return data as WorkspaceLabel;
+}
+
+export async function updateLabel(labelId: ID, name: string, color: string): Promise<WorkspaceLabel> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('labels')
+    .update({ name: name.trim(), color })
+    .eq('id', labelId)
+    .select('id, name, color')
+    .single();
+  if (error) throw error;
+  return data as WorkspaceLabel;
+}
+
+export async function deleteLabel(labelId: ID): Promise<void> {
+  const sb = getSupabase();
+  // First remove all card associations
+  await sb.from('card_labels').delete().eq('label_id', labelId);
+  // Then delete the label
+  const { error } = await sb.from('labels').delete().eq('id', labelId);
+  if (error) throw error;
+}

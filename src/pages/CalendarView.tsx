@@ -66,14 +66,20 @@ export default function CalendarView() {
       return getCardsWithDates(workspaceId || '2a8f10d6-4368-43db-ab1d-ab783ec6e935');
     },
     select: (data: CardRow[]) => {
-      return data
+      console.log('🔍 Calendar Debug - Raw data:', data?.length || 0, 'cards');
+      console.log('🔍 Calendar Debug - isGlobalView:', isGlobalView, 'boardId:', boardId);
+      
+      const filtered = data
         .filter(card => {
-          if (!isGlobalView && boardId) {
-            return card.board_id === boardId;
-          }
-          return true;
+          const include = !isGlobalView && boardId ? card.board_id === boardId : true;
+          console.log(`🔍 Board filter - Card ${card.id} (board: ${card.board_id}):`, include);
+          return include;
         })
-        .filter(card => card.date_start && card.date_end)
+        .filter(card => {
+          const hasdates = card.date_start && card.date_end;
+          console.log(`🔍 Date filter - Card ${card.id}:`, hasdates);
+          return hasdates;
+        })
         .map(card => ({
           id: card.id,
           title: card.title,
@@ -82,19 +88,38 @@ export default function CalendarView() {
           boardName: (card as any).boards?.name || 'Unknown Board',
           boardId: card.board_id,
         }));
+        
+      console.log('🔍 Calendar Debug - Final result:', filtered.length, 'cards');
+      return filtered;
     }
   });
 
   const currentBoard = boardsQuery.data?.find(board => board.id === boardId);
   const calendarCards = cardsQuery.data || [];
 
-  // Initialize visible boards
+  // Initialize visible boards - use a stable dependency
+  const boardNamesKey = React.useMemo(() => {
+    return calendarCards.map(card => card.boardName).sort().join(',');
+  }, [calendarCards]);
+
   React.useEffect(() => {
     if (calendarCards.length > 0) {
-      const boardNames = new Set(calendarCards.map(card => card.boardName));
-      setVisibleBoards(boardNames);
+      const boardNames = calendarCards.map(card => card.boardName);
+      const uniqueBoardNames = [...new Set(boardNames)];
+      
+      // Only update if the board names actually changed
+      setVisibleBoards(prev => {
+        const prevArray = Array.from(prev).sort();
+        const newArray = uniqueBoardNames.sort();
+        
+        if (prevArray.length !== newArray.length || 
+            !prevArray.every((name, index) => name === newArray[index])) {
+          return new Set(uniqueBoardNames);
+        }
+        return prev;
+      });
     }
-  }, [calendarCards]);
+  }, [boardNamesKey, calendarCards.length]);
 
   // Generate scrollable calendar based on current view and currentDate
   const scrollableCalendar = React.useMemo(() => {

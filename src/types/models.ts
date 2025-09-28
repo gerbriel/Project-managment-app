@@ -29,8 +29,23 @@ export type Card = {
   created_by: ID; created_at: string; updated_at: string;
 };
 
-export type Checklist = { id: ID; card_id: ID; title: string; position: number };
-export type ChecklistItem = { id: ID; checklist_id: ID; text: string; done: boolean; position: number };
+export type Workflow = { id: ID; card_id: ID; title: string; position: number };
+export type Task = { 
+  id: ID; 
+  workflow_id: ID; 
+  text: string; 
+  done: boolean; 
+  position: number;
+  due_date?: string;
+  assigned_to?: ID;
+  reminder_date?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+// Legacy type aliases for backward compatibility during migration
+export type Checklist = Workflow;
+export type ChecklistItem = Task;
 
 export type Attachment = {
   id: ID; card_id: ID; name: string; url: string; mime: string; size: number;

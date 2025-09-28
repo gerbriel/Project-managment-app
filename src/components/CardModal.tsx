@@ -3,19 +3,21 @@ import { createPortal } from 'react-dom';
 import Icon from './Icon';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSupabase } from '../app/supabaseClient';
-import type { ID } from '../types/models';
+import type { ID, Task } from '../types/models';
 import type { CardRow } from '../types/dto';
 import LabelPicker from './LabelPicker';
 import DateRangePicker from './DateRangePicker';
 import DescriptionEditor from './DescriptionEditor';
 import LocationBlock from './LocationBlock';
-import CustomFieldsEditor from './CustomFieldsEditor';
+import CustomFieldsManager from './CustomFieldsManager';
 import MembersPicker from './MembersPicker';
 import AttachmentList from './AttachmentList';
-import ChecklistGroup from './ChecklistGroup';
+import WorkflowGroup from './WorkflowGroup';
+import { deleteWorkflow, deleteTask } from '../api/checklists';
 import CommentComposer from './CommentComposer';
 import ActivityFeed from './ActivityFeed';
 import MoveCardDialog from './MoveCardDialog';
+import RestoreCardDialog from './RestoreCardDialog';
 import { logCardStateChange } from '../api/activityLogger';
 
 type Props = {
@@ -29,6 +31,7 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
   const [title, setTitle] = React.useState(initialTitle);
   const [showMoveDialog, setShowMoveDialog] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [showRestoreDialog, setShowRestoreDialog] = React.useState(false);
   const qc = useQueryClient();
   const sb = getSupabase();
   const lastSavedTitleRef = React.useRef<string>((initialTitle || '').trim());
@@ -40,7 +43,7 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
       const { data, error } = await sb
         .from('cards')
         .select(`
-          id, workspace_id, board_id, list_id, title, description, location_lat, location_lng, location_address, date_start, date_end, position, created_by, created_at, updated_at,
+          id, workspace_id, board_id, list_id, title, description, date_start, date_end, position, created_by, created_at, updated_at,
           board:boards(id, name, lists:lists(id, name)),
           card_field_values:card_field_values(field_id, value, custom_field_defs:custom_field_defs(name)),
           card_labels:card_labels(label_id, labels:labels(id, name, color)),
@@ -138,19 +141,6 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
   }, [title, saveMutation]);
 
   // Attachment handlers
-  const addAttachmentUrl = async (name: string, url: string, mime = 'application/octet-stream') => {
-    const supabase = getSupabase();
-    const size = 0;
-    const { data, error } = await supabase.from('attachments').insert({ card_id: cardId, name, url, mime, size, added_by: (await supabase.auth.getUser()).data.user?.id }).select('id').single();
-    if (error) throw error;
-    
-    // Log activity
-    const { logAttachmentOperation } = await import('../api/activityLogger');
-    await logAttachmentOperation(cardId, 'add', name, data?.id, url, size);
-    
-    await qc.invalidateQueries({ queryKey: ['card', cardId] });
-    await qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'cards' });
-  };
   const removeAttachment = async (attachmentId: ID) => {
     const supabase = getSupabase();
     
@@ -169,41 +159,102 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
   };
 
   // Checklist handlers
-  const toggleChecklistItem = async (itemId: ID, done: boolean) => {
+  const toggleWorkflowTask = async (taskId: ID, done: boolean) => {
+    // Validate UUID format
+    if (!taskId || typeof taskId !== 'string' || taskId.trim() === '') {
+      console.warn('toggleWorkflowTask called with invalid taskId:', taskId);
+      return;
+    }
+
     const supabase = getSupabase();
     
-    // Get item details before update for logging
-    const { data: item } = await supabase.from('checklist_items').select('text, checklist_id').eq('id', itemId).single();
+    const { data: task } = await supabase.from('checklist_items').select('text, checklist_id').eq('id', taskId).single();
     
-    const { error } = await supabase.from('checklist_items').update({ done }).eq('id', itemId);
+    const { error } = await supabase.from('checklist_items').update({ done }).eq('id', taskId);
     if (error) throw error;
     
     // Log activity
     const { logChecklistItemOperation } = await import('../api/activityLogger');
-    await logChecklistItemOperation(cardId, 'toggle', itemId, item?.text || 'Unknown item', done, item?.checklist_id);
-    
-    await qc.invalidateQueries({ queryKey: ['card', cardId] });
-  };
-  const addChecklistItem = async (checklistId: ID, text: string) => {
-    const supabase = getSupabase();
-    // compute position at end
-    const current = card?.checklists?.find((c) => c.id === checklistId)?.checklist_items ?? [];
-    const pos = (current[current.length - 1]?.position ?? 0) + 1;
-    const { data, error } = await supabase.from('checklist_items').insert({ checklist_id: checklistId, text, done: false, position: pos }).select('id').single();
-    if (error) throw error;
-    
-    // Log activity
-    const { logChecklistItemOperation } = await import('../api/activityLogger');
-    await logChecklistItemOperation(cardId, 'add', data?.id || '', text, false, checklistId);
+    await logChecklistItemOperation(cardId, 'toggle', taskId, task?.text || 'Unknown task', done, task?.checklist_id);
     
     await qc.invalidateQueries({ queryKey: ['card', cardId] });
   };
 
-  const addChecklist = async () => {
+  const updateWorkflowTask = async (taskId: ID, updates: Partial<Task>) => {
+    const supabase = getSupabase();
+    
+    // Get the current task data to check for assignment changes
+    const { data: currentTask } = await supabase
+      .from('checklist_items')
+      .select('assigned_to, text, checklist_id, checklists(title)')
+      .eq('id', taskId)
+      .single();
+    
+    // Prepare the update object with only the fields that exist in the database
+    const dbUpdate: any = {};
+    if ('text' in updates) dbUpdate.text = updates.text;
+    if ('done' in updates) dbUpdate.done = updates.done;
+    if ('due_date' in updates) dbUpdate.due_date = updates.due_date;
+    if ('assigned_to' in updates) dbUpdate.assigned_to = updates.assigned_to;
+    if ('reminder_date' in updates) dbUpdate.reminder_date = updates.reminder_date;
+    
+    const { error } = await supabase.from('checklist_items').update(dbUpdate).eq('id', taskId);
+    if (error) {
+      // Check if it's a column doesn't exist error
+      if (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist')) {
+        console.log('📝 Enhanced task features (due dates, assignments, reminders) will be available when database schema is updated');
+        
+        // Try updating only the basic fields that we know exist
+        const basicUpdate: any = {};
+        if ('text' in updates) basicUpdate.text = updates.text;
+        if ('done' in updates) basicUpdate.done = updates.done;
+        
+        if (Object.keys(basicUpdate).length > 0) {
+          const { error: basicError } = await supabase.from('checklist_items').update(basicUpdate).eq('id', taskId);
+          if (basicError) throw basicError;
+          console.log('✅ Basic task update successful');
+        }
+      } else {
+        // Some other error occurred
+        throw error;
+      }
+    } else {
+      console.log('✅ Full task update successful');
+      
+      // Send notification if task was assigned to someone new
+      if ('assigned_to' in updates && updates.assigned_to && updates.assigned_to !== currentTask?.assigned_to) {
+        const { notifyTaskAssignment } = await import('../api/notifications');
+        await notifyTaskAssignment(
+          taskId,
+          updates.assigned_to,
+          currentTask?.text || 'Task',
+          card?.title || 'Card'
+        );
+      }
+    }
+    
+    await qc.invalidateQueries({ queryKey: ['card', cardId] });
+  };
+
+  const addWorkflowTask = async (workflowId: ID, text: string) => {
+    const supabase = getSupabase();
+    // compute position at end
+    const current = card?.checklists?.find((c) => c.id === workflowId)?.checklist_items ?? [];
+    const pos = (current[current.length - 1]?.position ?? 0) + 1;
+    const { data, error } = await supabase.from('checklist_items').insert({ checklist_id: workflowId, text, done: false, position: pos }).select('id').single();
+    if (error) throw error;
+    
+    // Log activity
+    const { logChecklistItemOperation } = await import('../api/activityLogger');
+    await logChecklistItemOperation(cardId, 'add', data?.id || '', text, false, workflowId);
+    
+    await qc.invalidateQueries({ queryKey: ['card', cardId] });
+  };
+
+  const addWorkflow = async (title: string = 'Workflow') => {
     const supabase = getSupabase();
     const current = card?.checklists ?? [];
     const pos = (current[current.length - 1]?.position ?? 0) + 1;
-    const title = 'Checklist';
     const { data, error } = await supabase.from('checklists').insert({ card_id: cardId, title, position: pos }).select('id').single();
     if (error) throw error;
     
@@ -212,6 +263,67 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
     await logChecklistOperation(cardId, 'add', data?.id || '', title);
     
     await qc.invalidateQueries({ queryKey: ['card', cardId] });
+  };
+
+  const renameWorkflow = async (workflowId: string, newTitle: string) => {
+    const supabase = getSupabase();
+    const { error } = await supabase.from('checklists').update({ title: newTitle }).eq('id', workflowId);
+    if (error) throw error;
+    
+    await qc.invalidateQueries({ queryKey: ['card', cardId] });
+  };
+
+  const reorderWorkflowTasks = async (workflowId: string, taskIds: string[]) => {
+    const supabase = getSupabase();
+    
+    // Update positions for all tasks
+    const updates = taskIds.map((taskId, index) => ({
+      id: taskId,
+      position: index + 1
+    }));
+    
+    // Batch update all positions
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('checklist_items')
+        .update({ position: update.position })
+        .eq('id', update.id);
+      
+      if (error) {
+        console.error('Error updating task position:', error);
+        throw error;
+      }
+    }
+    
+    await qc.invalidateQueries({ queryKey: ['card', cardId] });
+  };
+
+  const deleteWorkflowHandler = async (workflowId: string) => {
+    try {
+      await deleteWorkflow(workflowId);
+      
+      // Log activity
+      const { logChecklistOperation } = await import('../api/activityLogger');
+      await logChecklistOperation(cardId, 'remove', workflowId, 'Workflow deleted');
+      
+      await qc.invalidateQueries({ queryKey: ['card', cardId] });
+    } catch (error) {
+      console.error('Error deleting workflow:', error);
+    }
+  };
+
+  const deleteTaskHandler = async (taskId: string) => {
+    try {
+      await deleteTask(taskId);
+      
+      // Log activity
+      const { logChecklistItemOperation } = await import('../api/activityLogger');
+      await logChecklistItemOperation(cardId, 'remove', taskId, 'Task deleted', false);
+      
+      await qc.invalidateQueries({ queryKey: ['card', cardId] });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
   };
 
   // Members placeholder
@@ -320,37 +432,15 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
     }
   };
 
-  // Restore card from Archive
-  const restoreCard = async () => {
+  // Restore card from Archive - show dialog to choose destination
+  const handleRestoreCard = async (targetBoardId: ID, targetListId: ID) => {
     try {
       const supabase = getSupabase();
-      const { data: workspaces } = await supabase.from('workspaces').select('id').limit(1);
-      if (!workspaces?.[0]) return;
       
-      // Find the first non-Archive board
-      const { data: boards } = await supabase
-        .from('boards')
-        .select('id, name, lists:lists(id)')
-        .eq('workspace_id', workspaces[0].id)
-        .neq('name', 'Archive')
-        .limit(1);
-      
-      if (!boards?.[0]) {
-        alert('No boards available to restore the card to.');
-        return;
-      }
-      
-      const targetBoard = boards[0];
-      const lists = (targetBoard as any).lists;
-      if (!lists?.[0]) {
-        alert('The target board has no lists. Please create a list first.');
-        return;
-      }
-      
-      // Move card to first list of first non-Archive board
+      // Move card to chosen board and list
       const { error } = await supabase
         .from('cards')
-        .update({ board_id: targetBoard.id, list_id: lists[0].id })
+        .update({ board_id: targetBoardId, list_id: targetListId })
         .eq('id', cardId);
       
       if (error) throw error;
@@ -464,17 +554,66 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Left: main content (2 cols) */}
           <div className="lg:col-span-2">
-            {/* Actions row */}
-            <div className="mt-1 flex flex-wrap gap-2 text-sm">
-                <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg" onClick={addChecklist}>+ Add</button>
-                <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg" onClick={addChecklist}>Checklist</button>
-                <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg" onClick={() => setShowMembers((v) => !v)}>Members</button>
-                <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg" onClick={() => openUploadRef.current?.()}>Attachment</button>
-              <span className="flex-1" />
-              <button className="px-2 py-1 rounded border border-border text-fg-subtle hover:text-fg" onClick={archive}>Archive</button>
-              {isOnArchiveBoard && (
-                <button className="px-2 py-1 rounded border border-danger/40 text-danger hover:text-danger/80" onClick={del}>Delete</button>
-              )}
+            
+            {/* Card Actions */}
+            <div className="mb-4">
+              <div className="text-sm text-fg-muted mb-2">Card Actions</div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowMoveDialog(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+                >
+                  <Icon name="arrow-right" size={14} />
+                  Move Card
+                </button>
+                {!isOnArchiveBoard ? (
+                  <button
+                    onClick={archiveCard}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+                  >
+                    <Icon name="archive" size={14} />
+                    Archive
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowRestoreDialog(true)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+                  >
+                    <Icon name="plus" size={14} />
+                    Restore
+                  </button>
+                )}
+                {isOnArchiveBoard && (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-50 border border-red-200 text-red-700 rounded hover:bg-red-100 transition-colors"
+                  >
+                    <Icon name="trash" size={14} />
+                    Delete
+                  </button>
+                )}
+                <button 
+                  onClick={() => addWorkflow()}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+                >
+                  <Icon name="plus" size={14} />
+                  Add Workflow
+                </button>
+                <button 
+                  onClick={() => setShowMembers((v) => !v)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+                >
+                  <Icon name="plus" size={14} />
+                  Members
+                </button>
+                <button 
+                  onClick={() => openUploadRef.current?.()}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+                >
+                  <Icon name="paperclip" size={14} />
+                  Attachment
+                </button>
+              </div>
             </div>
 
             {showMembers && card?.workspace_id && (
@@ -506,7 +645,8 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
               <DescriptionEditor cardId={cardId} value={card?.description ?? null} />
             </div>
 
-            {/* Location */}
+            {/* Location - temporarily disabled until location migration is run */}
+            {/*
             <div className="mt-4">
               <div className="text-sm text-fg-muted mb-1">Location</div>
               <LocationBlock
@@ -518,6 +658,7 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
                 title={card?.title}
               />
             </div>
+            */}
 
             {/* Custom Fields */}
             <div className="mt-4">
@@ -538,7 +679,7 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
                   )}
                 </div>
               )}
-              <CustomFieldsEditor workspaceId={card?.workspace_id as any} cardId={cardId} values={card?.card_field_values as any} />
+              <CustomFieldsManager workspaceId={card?.workspace_id as any} cardId={cardId} values={card?.card_field_values as any} />
             </div>
 
             {/* Attachments */}
@@ -546,7 +687,6 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
               <div className="text-sm text-fg-muted mb-1">Attachments</div>
               <AttachmentList
                 attachments={card?.attachments ?? []}
-                onAddUrl={(n, u) => addAttachmentUrl(n, u)}
                 onRemove={(id) => removeAttachment(id)}
                 workspaceId={card?.workspace_id}
                 cardId={cardId}
@@ -558,46 +698,35 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
               />
             </div>
 
-            {/* Checklists */}
+            {/* Workflows */}
             <div className="mt-4">
-              <div className="text-sm text-fg-muted mb-1">Checklists</div>
-              <ChecklistGroup checklists={card?.checklists ?? []} onToggleItem={toggleChecklistItem} onAddItem={addChecklistItem} onAddChecklist={addChecklist} />
-            </div>
-
-            {/* Card Actions */}
-            <div className="mt-4">
-              <div className="text-sm text-fg-muted mb-2">Card Actions</div>
-              <div className="flex flex-wrap gap-2">
+              <div className="text-sm text-fg-muted mb-1">Workflows</div>
+              <div className="space-y-3">
+                {(card?.checklists ?? []).map(workflow => (
+                  <WorkflowGroup 
+                    key={workflow.id}
+                    workflow={workflow}
+                    workspaceId={card?.workspace_id}
+                    tasks={(workflow.checklist_items ?? []).map(item => ({
+                      ...item,
+                      workflow_id: workflow.id
+                    } as Task)).sort((a, b) => (a.position || 0) - (b.position || 0))}
+                    onToggleTask={toggleWorkflowTask} 
+                    onAddTask={addWorkflowTask} 
+                    onRenameWorkflow={renameWorkflow}
+                    onReorderTasks={reorderWorkflowTasks}
+                    onDeleteTask={deleteTaskHandler}
+                    onDeleteWorkflow={deleteWorkflowHandler}
+                    onUpdateTask={updateWorkflowTask}
+                  />
+                ))}
+                
+                {/* Add Workflow Button */}
                 <button
-                  onClick={() => setShowMoveDialog(true)}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
+                  onClick={() => addWorkflow('Workflow')}
+                  className="w-full p-2 text-sm text-muted hover:text-fg hover:bg-surface-2 rounded border-2 border-dashed border-app/20 hover:border-app/40 transition-colors"
                 >
-                  <Icon name="arrow-right" size={14} />
-                  Move Card
-                </button>
-                {!isOnArchiveBoard ? (
-                  <button
-                    onClick={archiveCard}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
-                  >
-                    <Icon name="archive" size={14} />
-                    Archive
-                  </button>
-                ) : (
-                  <button
-                    onClick={restoreCard}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-bg-subtle border border-border rounded hover:bg-bg-muted transition-colors"
-                  >
-                    <Icon name="plus" size={14} />
-                    Restore
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-50 border border-red-200 text-red-700 rounded hover:bg-red-100 transition-colors"
-                >
-                  <Icon name="trash" size={14} />
-                  Delete
+                  + Add Workflow
                 </button>
               </div>
             </div>
@@ -662,6 +791,16 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
           </div>
         </div>
       )}
-    </div>
-  , document.body);
+
+      {/* Restore Card Dialog */}
+      <RestoreCardDialog
+        isOpen={showRestoreDialog}
+        onClose={() => setShowRestoreDialog(false)}
+        onRestore={handleRestoreCard}
+        workspaceId={card?.workspace_id}
+        cardTitle={card?.title || ''}
+      />
+    </div>,
+    document.body
+  );
 }
