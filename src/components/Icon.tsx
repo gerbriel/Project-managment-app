@@ -19,7 +19,9 @@ type IconName =
   | 'x'
   | 'plus'
   | 'more'
-  | 'menu';
+  | 'menu'
+  | 'check'
+  | 'users';
 
 type Props = {
   name: IconName;
@@ -172,6 +174,21 @@ export default function Icon({ name, size = 18, className, strokeWidth = 1.75 }:
       return (
         <svg {...common}>
           <path d="M3 6h18M3 12h18M3 18h18" />
+        </svg>
+      );
+    case 'check':
+      return (
+        <svg {...common}>
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      );
+    case 'users':
+      return (
+        <svg {...common}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="m22 21-2-2a4 4 0 0 0-4-4h-1" />
+          <circle cx="16" cy="7" r="3" />
         </svg>
       );
     default:

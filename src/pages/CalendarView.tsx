@@ -48,6 +48,15 @@ export default function CalendarView() {
     const [currentView, setCurrentView] = useState<CalendarView>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  // Remember last visited board for ViewSwitcher default
+  React.useEffect(() => {
+    if (boardId && workspaceId) {
+      const storageKey = `lastVisitedBoard_${workspaceId}`;
+      localStorage.setItem(storageKey, boardId);
+      console.log('📝 Saved last visited board:', boardId, 'for workspace:', workspaceId);
+    }
+  }, [boardId, workspaceId]);
+
   // Fetch boards for global view
   const boardsQuery = useQuery({
     queryKey: ['boards'],
@@ -66,20 +75,14 @@ export default function CalendarView() {
       return getCardsWithDates(workspaceId || '2a8f10d6-4368-43db-ab1d-ab783ec6e935');
     },
     select: (data: CardRow[]) => {
-      console.log('🔍 Calendar Debug - Raw data:', data?.length || 0, 'cards');
-      console.log('🔍 Calendar Debug - isGlobalView:', isGlobalView, 'boardId:', boardId);
-      
-      const filtered = data
+      return data
         .filter(card => {
-          const include = !isGlobalView && boardId ? card.board_id === boardId : true;
-          console.log(`🔍 Board filter - Card ${card.id} (board: ${card.board_id}):`, include);
-          return include;
+          if (!isGlobalView && boardId) {
+            return card.board_id === boardId;
+          }
+          return true;
         })
-        .filter(card => {
-          const hasdates = card.date_start && card.date_end;
-          console.log(`🔍 Date filter - Card ${card.id}:`, hasdates);
-          return hasdates;
-        })
+        .filter(card => card.date_start && card.date_end)
         .map(card => ({
           id: card.id,
           title: card.title,
@@ -88,9 +91,6 @@ export default function CalendarView() {
           boardName: (card as any).boards?.name || 'Unknown Board',
           boardId: card.board_id,
         }));
-        
-      console.log('🔍 Calendar Debug - Final result:', filtered.length, 'cards');
-      return filtered;
     }
   });
 
@@ -572,7 +572,12 @@ export default function CalendarView() {
                       onChange={() => toggleBoardVisibility(board.name)}
                       className="w-3 h-3 text-accent bg-bg border-border rounded focus:ring-accent focus:ring-1"
                     />
-                    <span className="text-xs md:text-sm">{board.name} ({cardCount})</span>
+                    <Link 
+                      to={`/b/${board.id}/calendar`}
+                      className="text-xs md:text-sm hover:text-accent hover:underline cursor-pointer"
+                    >
+                      {board.name} ({cardCount})
+                    </Link>
                   </div>
                 );
               })
@@ -583,9 +588,44 @@ export default function CalendarView() {
 
       {/* ViewSwitcher for both individual board views and master calendar */}
       {boardId && <ViewSwitcher boardId={boardId} />}
-      {isGlobalView && boardsQuery.data && boardsQuery.data.length > 0 && (
-        <ViewSwitcher boardId={boardsQuery.data[0].id} />
-      )}
+      {isGlobalView && boardsQuery.data && boardsQuery.data.length > 0 && (() => {
+        console.log('🔄 ViewSwitcher board selection logic...');
+        const currentWorkspaceId = workspaceId || '2a8f10d6-4368-43db-ab1d-ab783ec6e935';
+        const storageKey = `lastVisitedBoard_${currentWorkspaceId}`;
+        
+        // Try to use the last visited board first
+        const lastVisitedBoardId = localStorage.getItem(storageKey);
+        console.log('🔍 Looking for last visited board:', lastVisitedBoardId);
+        console.log('🔍 Available boards:', boardsQuery.data.map(b => `${b.name} (${b.id})`));
+        
+        const lastVisitedBoard = lastVisitedBoardId 
+          ? boardsQuery.data.find(board => board.id === lastVisitedBoardId)
+          : null;
+        
+        console.log('🔍 Found last visited board:', lastVisitedBoard?.name);
+        
+        // If last visited board exists and isn't Archive, use it
+        if (lastVisitedBoard && lastVisitedBoard.name !== 'Archive') {
+          console.log('✅ Using last visited board:', lastVisitedBoard.name);
+          return <ViewSwitcher boardId={lastVisitedBoard.id} />;
+        }
+        
+        // Otherwise, find a non-Archive board (prefer boards with cards that have dates)
+        const boardsWithCards = boardsQuery.data.filter(board => 
+          calendarCards.some(card => card.boardId === board.id) && 
+          board.name !== 'Archive'
+        );
+        
+        console.log('🔍 Boards with calendar cards:', boardsWithCards.map(b => b.name));
+        
+        const nonArchiveBoards = boardsQuery.data.filter(board => board.name !== 'Archive');
+        const defaultBoard = boardsWithCards.length > 0 ? boardsWithCards[0] : 
+                            nonArchiveBoards.length > 0 ? nonArchiveBoards[0] : 
+                            boardsQuery.data[0];
+        
+        console.log('📍 Defaulting to board:', defaultBoard.name);
+        return <ViewSwitcher boardId={defaultBoard.id} />;
+      })()}
     </div>
   );
 }

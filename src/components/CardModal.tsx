@@ -202,7 +202,7 @@ export default function CardModal({ cardId, boardId, initialTitle, onClose }: Pr
     if (error) {
       // Check if it's a column doesn't exist error
       if (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist')) {
-        console.log('📝 Enhanced task features (due dates, assignments, reminders) will be available when database schema is updated');
+        // Enhanced task features will be available when database schema is updated
         
         // Try updating only the basic fields that we know exist
         const basicUpdate: any = {};

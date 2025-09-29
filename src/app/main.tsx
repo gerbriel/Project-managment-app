@@ -6,7 +6,9 @@ import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router } from './router';
 import ThemeToggle from '@components/ThemeToggle';
-import TaskFeatureStatus from '@components/TaskFeatureStatus';
+import { AuthProvider } from '@contexts/AuthContext';
+import { FilterProvider } from '@contexts/FilterContext';
+import { SearchProvider } from '@contexts/SearchContext';
 import DevAuthGate from './DevAuthGate';
 
 const queryClient = new QueryClient();
@@ -15,13 +17,18 @@ function AppRoot() {
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <DevAuthGate>
-          <div className="min-h-screen bg-app text-app">
-            <RouterProvider router={router} future={{ v7_startTransition: true }} />
-            <ThemeToggle />
-            <TaskFeatureStatus />
-          </div>
-        </DevAuthGate>
+        <AuthProvider>
+          <FilterProvider>
+            <SearchProvider>
+              <DevAuthGate>
+                <div className="min-h-screen bg-app text-app">
+                  <RouterProvider router={router} future={{ v7_startTransition: true }} />
+                  <ThemeToggle />
+                </div>
+              </DevAuthGate>
+            </SearchProvider>
+          </FilterProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </React.StrictMode>
   );

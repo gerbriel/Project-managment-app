@@ -81,33 +81,10 @@ export async function checkSchemaStatus(): Promise<SchemaStatus> {
  * Display schema status in console for debugging
  */
 export async function logSchemaStatus(): Promise<void> {
-  console.log('🔍 Checking database schema status...');
-  
+  // Disabled for production - schema checking is still available programmatically
   try {
     const status = await checkSchemaStatus();
-    
-    console.log('\n📊 Database Schema Status:');
-    console.log('==========================');
-    
-    if (status.availableFeatures.length > 0) {
-      console.log('✅ Available Features:');
-      status.availableFeatures.forEach(feature => console.log(`   • ${feature}`));
-    }
-    
-    if (status.missingFeatures.length > 0) {
-      console.log('\n⏳ Features Pending Schema Update:');
-      status.missingFeatures.forEach(feature => console.log(`   • ${feature}`));
-      
-      console.log('\n💡 To enable all features, run the database migration:');
-      console.log('   See: scripts/add-task-enhancements.sql');
-    }
-    
-    if (status.availableFeatures.length === 0) {
-      console.log('\n🔧 All task enhancement features are pending database schema updates.');
-    }
-    
-    console.log('\n📱 Current UI Status: All interfaces are ready and will work when schema is updated');
-    console.log('==========================\n');
+    // Schema status available via checkSchemaStatus() function
     
   } catch (error) {
     console.error('❌ Schema check failed:', error);

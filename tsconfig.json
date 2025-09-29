@@ -20,7 +20,8 @@
       "@pages/*": ["src/pages/*"],
       "@api/*": ["src/api/*"],
       "@store/*": ["src/store/*"],
-      "@types/*": ["src/types/*"]
+      "@types/*": ["src/types/*"],
+      "@contexts/*": ["src/contexts/*"]
     }
   },
   "include": ["src"],

@@ -142,7 +142,7 @@ export default function Sidebar() {
         to={to}
         className={
           'flex items-center gap-2 px-3 py-2 rounded-md text-sm ' +
-          (active ? 'bg-accent/15 text-accent' : 'text-fg-subtle hover:text-fg hover:bg-bg-inset')
+          (active && !collapsed ? 'bg-accent/15 text-accent' : 'text-fg-subtle hover:text-fg hover:bg-bg-inset')
         }
         title={label}
       >
@@ -178,7 +178,7 @@ export default function Sidebar() {
         style={{ width: 'var(--sidebar-w, 224px)' }}
       >
       <div className="h-12 flex items-center justify-between px-2">
-        {!collapsed && <div className="px-2 font-semibold">Navigation</div>}
+        {!collapsed && <div className="px-2 font-semibold">TaskFloow</div>}
         <button
           className="w-8 h-8 grid place-items-center text-fg-subtle hover:text-fg"
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -239,7 +239,7 @@ export default function Sidebar() {
         </div>
       </div>
       {/* Footer actions */}
-      <div className="p-2 border-t border-app/60">
+      <div className={`p-2 border-t border-app/60 ${collapsed ? 'hidden' : ''}`}>
         <div className="flex gap-2">
           <button
             className="flex-1 h-9 inline-flex items-center justify-center gap-2 rounded-md bg-accent/10 text-accent hover:bg-accent/15"
@@ -281,7 +281,9 @@ export default function Sidebar() {
             {!collapsed && <span>New Board</span>}
           </button>
           <button
-            className="w-9 h-9 inline-flex items-center justify-center rounded-md text-danger hover:bg-danger/10"
+            className={`w-9 h-9 inline-flex items-center justify-center rounded-md text-danger hover:bg-danger/10 ${
+              collapsed ? 'hidden' : ''
+            }`}
             onClick={async () => {
               try {
                 // Delete currently active board if any
@@ -402,7 +404,7 @@ function SortableBoardItem({ id, to, label, collapsed, board, onArchive, allBoar
       <div
         className={
           'flex items-center gap-2 px-3 py-2 rounded-md text-sm group ' +
-          (active ? 'bg-accent/15 text-accent' : 'text-fg-subtle hover:text-fg hover:bg-bg-inset')
+          (active && !collapsed ? 'bg-accent/15 text-accent' : 'text-fg-subtle hover:text-fg hover:bg-bg-inset')
         }
         title={label}
         {...listeners}

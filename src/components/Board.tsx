@@ -5,6 +5,8 @@ import { getListsByBoard } from '@api/lists';
 import { getCardsByBoard, updateCardPosition } from '@api/cards';
 import SortableList from './SortableList';
 import CardTile from './CardTile';
+import FilterSummary from './FilterSummary';
+import { useFilteredCards } from '../hooks/useFilteredCards';
 import { DndContext, DragEndEvent, DragStartEvent, DragOverEvent, PointerSensor, useSensor, useSensors, DragOverlay, closestCenter, pointerWithin } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { getSupabase } from '../app/supabaseClient';
@@ -33,8 +35,19 @@ export default function Board() {
     // Distance-based activation so clicks don't start drags; bump to 10px for safety
     useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
   );
+  
+  // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
   // Modal-open state must be declared before any early returns to preserve hook order
   const [modalOpen, setModalOpen] = React.useState<boolean>((window as any).__CARD_MODAL_OPEN__ ?? false);
+  const [activeDrag, setActiveDrag] = React.useState<null | { type: 'card' | 'list'; id: string }>(null);
+  const [listDropIndex, setListDropIndex] = React.useState<number | null>(null);
+  const [lastOverId, setLastOverId] = React.useState<string | null>(null);
+  const [dropHighlightListId, setDropHighlightListId] = React.useState<string | null>(null);
+  
+  // Apply filters using the custom hook - MUST be called before early returns
+  const rawCards = (cardsQuery.data ?? []) as CardRow[];
+  const cards = useFilteredCards(rawCards, boardId);
+  
   React.useEffect(() => {
     const onToggle = (e: Event) => setModalOpen(Boolean((e as CustomEvent).detail));
     window.addEventListener('card-modal-toggle', onToggle as any);
@@ -49,10 +62,6 @@ export default function Board() {
     setLastOverId(null);
     setDropHighlightListId(null);
   }, [modalOpen]);
-  const [activeDrag, setActiveDrag] = React.useState<null | { type: 'card' | 'list'; id: string }>(null);
-  const [listDropIndex, setListDropIndex] = React.useState<number | null>(null);
-  const [lastOverId, setLastOverId] = React.useState<string | null>(null);
-  const [dropHighlightListId, setDropHighlightListId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!boardId) return;
@@ -83,7 +92,6 @@ export default function Board() {
   }
 
   const lists = (listsQuery.data ?? []) as ListRow[];
-  const cards = (cardsQuery.data ?? []) as CardRow[];
 
   const onDragStart = (evt: DragStartEvent) => {
     const t = (evt.active.data.current as any)?.type as 'card' | 'list' | undefined;
@@ -243,7 +251,8 @@ export default function Board() {
 
   return (
     <div className="p-4 overflow-x-auto">
-  <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
+      <FilterSummary />
+      <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
         <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
           <div className={`flex gap-4 min-w-max items-stretch relative ${modalOpen ? 'pointer-events-none select-none' : ''}`}>
             {/* Left-edge indicator when dropping at index 0 */}
@@ -253,7 +262,7 @@ export default function Board() {
 
             {lists.map((l, i) => (
               <React.Fragment key={l.id}>
-                <SortableList list={l} cards={cards.filter((c) => c.list_id === l.id)} bump={dropHighlightListId === l.id} />
+                <SortableList list={l} cards={cards.filter((c: CardRow) => c.list_id === l.id)} bump={dropHighlightListId === l.id} />
                 {/* Indicator between items */}
                 {activeDrag?.type === 'list' && listDropIndex === i + 1 ? (
                   <div className="w-1 self-stretch bg-accent rounded-sm opacity-70" />
@@ -268,7 +277,7 @@ export default function Board() {
             ? (() => {
                 const l = lists.find((x) => x.id === activeDrag.id);
                 if (!l) return null;
-                const lc = cards.filter((c) => c.list_id === l.id);
+                const lc = cards.filter((c: CardRow) => c.list_id === l.id);
                 return (
                   <div className={`opacity-90 pointer-events-none ${modalOpen ? '' : 'animate-jiggle'}`}>
                     <div className="w-80 bg-surface rounded-md border border-app p-3">
@@ -278,7 +287,7 @@ export default function Board() {
                       </div>
                       <div className="flex flex-col gap-2 min-h-[20px]">
                         {lc.length > 0 ? (
-                          lc.map((c) => {
+                          lc.map((c: CardRow) => {
                             const overdue = Boolean(c.date_end && new Date(c.date_end) < new Date());
                             return <CardTile key={c.id} title={c.title} overdue={overdue} card={c as any} />;
                           })
@@ -293,7 +302,7 @@ export default function Board() {
               })()
             : activeDrag?.type === 'card'
             ? (() => {
-                const c = cards.find((x) => x.id === activeDrag.id);
+                const c = cards.find((x: CardRow) => x.id === activeDrag.id);
                 if (!c) return null;
                 const overdue = Boolean(c.date_end && new Date(c.date_end) < new Date());
                 return (

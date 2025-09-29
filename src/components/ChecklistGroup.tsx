@@ -18,25 +18,25 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Task, Workflow } from '../types/models';
 
-interface WorkflowGroupProps {
-  workflow: { id: string; title?: string; card_id?: string };
-  tasks: { id: string; text?: string; done: boolean; workflow_id?: string; position?: number }[];
-  onToggleTask: (taskId: string, checked: boolean) => void;
-  onAddTask?: (workflowId: string, text: string) => void;
-  onRenameTask?: (taskId: string, newText: string) => void;
-  onRenameWorkflow?: (workflowId: string, newTitle: string) => void;
-  onReorderTasks?: (workflowId: string, taskIds: string[]) => void;
-  onDeleteTask?: (taskId: string) => void;
-  onDeleteWorkflow?: (workflowId: string) => void;
+interface ChecklistGroupProps {
+  checklist: { id: string; title?: string; card_id?: string };
+  items: { id: string; text?: string; done: boolean; workflow_id?: string; position?: number }[];
+  onToggleItem: (itemId: string, checked: boolean) => void;
+  onAddItem?: (checklistId: string, text: string) => void;
+  onRenameItem?: (itemId: string, newText: string) => void;
+  onRenameChecklist?: (checklistId: string, newTitle: string) => void;
+  onReorderItems?: (checklistId: string, itemIds: string[]) => void;
+  onDeleteItem?: (itemId: string) => void;
+  onDeleteChecklist?: (checklistId: string) => void;
 }
 
-interface SortableTaskProps {
-  task: { id: string; text?: string; done: boolean };
+interface SortableChecklistItemProps {
+  item: { id: string; text?: string; done: boolean };
   onToggle: (checked: boolean) => void;
-  onDelete?: (taskId: string) => void;
+  onDelete?: (itemId: string) => void;
 }
 
-function SortableTask({ task, onToggle, onDelete }: SortableTaskProps) {
+function SortableChecklistItem({ item, onToggle, onDelete }: SortableChecklistItemProps) {
   const {
     attributes,
     listeners,
@@ -44,7 +44,7 @@ function SortableTask({ task, onToggle, onDelete }: SortableTaskProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id });
+  } = useSortable({ id: item.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -75,16 +75,16 @@ function SortableTask({ task, onToggle, onDelete }: SortableTaskProps) {
       </div>
       <input
         type="checkbox"
-        checked={task.done || false}
+        checked={item.done || false}
         onChange={(e) => onToggle(e.target.checked)}
         className="flex-shrink-0"
       />
-      <span className={`flex-1 select-none ${task.done ? 'line-through text-muted' : ''}`}>
-        {task.text || 'Task'}
+      <span className={`flex-1 select-none ${item.done ? 'line-through text-muted' : ''}`}>
+        {item.text || 'Item'}
       </span>
       {onDelete && (
         <button
-          onClick={() => onDelete(task.id)}
+          onClick={() => onDelete(item.id)}
           className="flex items-center justify-center w-4 h-4 text-muted hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
           title="Delete task"
         >
@@ -97,7 +97,7 @@ function SortableTask({ task, onToggle, onDelete }: SortableTaskProps) {
   );
 }
 
-function WorkflowHeader({ title, percentage, onRename, onDelete }: { 
+function ChecklistHeader({ title, percentage, onRename, onDelete }: { 
   title: string; 
   percentage: number; 
   onRename?: (newTitle: string) => void;
@@ -160,14 +160,14 @@ function WorkflowHeader({ title, percentage, onRename, onDelete }: {
   );
 }
 
-function AddTaskRow({ onAdd }: { onAdd: (text: string) => void }) {
+function AddItemRow({ onAdd }: { onAdd: (text: string) => void }) {
   const [isAdding, setIsAdding] = useState(false);
-  const [taskText, setTaskText] = useState('');
+  const [itemText, setItemText] = useState('');
 
   const handleSave = () => {
-    if (taskText.trim()) {
-      onAdd(taskText.trim());
-      setTaskText('');
+    if (itemText.trim()) {
+      onAdd(itemText.trim());
+      setItemText('');
     }
     setIsAdding(false);
   };
@@ -177,40 +177,7 @@ function AddTaskRow({ onAdd }: { onAdd: (text: string) => void }) {
       handleSave();
     } else if (e.key === 'Escape') {
       setIsAdding(false);
-      setTaskText('');
-    }
-  };
-
-  if (isAdding) {
-    return (
-      <div className="flex items-center gap-2 p-1">
-        <div className="w-4 h-4"></div>
-        <input type="checkbox" disabled className="flex-shrink-0 opacity-50" />
-        <input
-          type="text"
-          value={taskText}
-          onChange={(e) => setTaskText(e.target.value)}
-          onBlur={handleSave}
-          onKeyDown={handleKeyDown}
-          placeholder="Add task..."
-          className="flex-1 bg-transparent text-sm outline-none"
-          autoFocus
-        />
-      </div>
-    );
-  }
-
-  return (
-    <button
-      onClick={() => setIsAdding(true)}
-      className="flex items-center gap-2 p-1 text-sm text-muted hover:text-fg hover:bg-surface-2 rounded transition-colors w-full"
-    >
-      <div className="w-4 h-4"></div>
-      <span className="text-muted">+</span>
-      <span>Add task...</span>
-    </button>
-  );
-}
+      setItemText('');
     }
   };
 
