@@ -4,9 +4,9 @@ import { CSS } from '@dnd-kit/utilities';
 import type { CardRow, ListRow } from '../types/dto';
 import List from './List';
 
-type Props = { list: ListRow; cards: CardRow[]; bump?: boolean };
+type Props = { list: ListRow; cards: CardRow[]; bump?: boolean; highlighted?: boolean };
 
-export default function SortableList({ list, cards, bump }: Props) {
+export default function SortableList({ list, cards, bump, highlighted }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: list.id,
     data: { type: 'list', listId: list.id },
@@ -24,11 +24,11 @@ export default function SortableList({ list, cards, bump }: Props) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative ${modalOpen ? '' : ''} ${isDragging && !modalOpen ? 'animate-jiggle' : ''}`}
+      className={`relative ${modalOpen ? '' : ''} ${isDragging && !modalOpen ? '' : ''}`}
       {...(modalOpen ? {} : attributes)}
       {...(modalOpen ? {} : listeners)}
     >
-      <List title={list.name} listId={list.id} cards={cards} bump={bump} />
+      <List title={list.name} listId={list.id} cards={cards} bump={bump} highlighted={highlighted} />
     </div>
   );
 }

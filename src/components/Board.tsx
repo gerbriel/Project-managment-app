@@ -32,8 +32,8 @@ export default function Board() {
 
   const queryClient = useQueryClient();
   const sensors = useSensors(
-    // Distance-based activation so clicks don't start drags; bump to 10px for safety
-    useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
+    // Reduced distance for more responsive drag start
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
   
   // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
@@ -100,6 +100,25 @@ export default function Board() {
 
   const onDragOver = (evt: DragOverEvent) => {
     const t = (evt.active.data.current as any)?.type as 'card' | 'list' | undefined;
+    
+    // Handle card dragging over lists for visual feedback
+    if (t === 'card') {
+      const overData = evt.over?.data.current as CardDragData | ListDragData | undefined;
+      let targetListId: string | undefined = overData?.listId;
+      if (!targetListId && (overData as CardDragData | undefined)?.cardId) {
+        targetListId = (overData as CardDragData).listId;
+      }
+      // Only highlight if dragging to a different list
+      const activeData = evt.active.data.current as CardDragData | undefined;
+      const sourceListId = activeData?.listId;
+      if (targetListId && targetListId !== sourceListId) {
+        setDropHighlightListId(targetListId);
+      } else {
+        setDropHighlightListId(null);
+      }
+      return;
+    }
+    
     if (t !== 'list') return;
     const overId = evt.over?.id ? String(evt.over.id) : null;
     if (overId) setLastOverId(overId);
@@ -245,7 +264,10 @@ export default function Board() {
     setListDropIndex(null);
     setLastOverId(null);
   };
-  const onDragCancel = () => setActiveDrag(null);
+  const onDragCancel = () => {
+    setActiveDrag(null);
+    setDropHighlightListId(null);
+  };
 
   
 
@@ -262,7 +284,12 @@ export default function Board() {
 
             {lists.map((l, i) => (
               <React.Fragment key={l.id}>
-                <SortableList list={l} cards={cards.filter((c: CardRow) => c.list_id === l.id)} bump={dropHighlightListId === l.id} />
+                <SortableList 
+                  list={l} 
+                  cards={cards.filter((c: CardRow) => c.list_id === l.id)} 
+                  bump={activeDrag?.type === 'list' && dropHighlightListId === l.id}
+                  highlighted={activeDrag?.type === 'card' && dropHighlightListId === l.id}
+                />
                 {/* Indicator between items */}
                 {activeDrag?.type === 'list' && listDropIndex === i + 1 ? (
                   <div className="w-1 self-stretch bg-accent rounded-sm opacity-70" />

@@ -9,9 +9,9 @@ import { getBoards } from '@api/boards';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 
-type Props = { title: string; listId: string; cards: CardRow[]; bump?: boolean };
+type Props = { title: string; listId: string; cards: CardRow[]; bump?: boolean; highlighted?: boolean };
 
-export default function List({ title, listId, cards, bump }: Props) {
+export default function List({ title, listId, cards, bump, highlighted }: Props) {
   const { setNodeRef } = useDroppable({ id: listId, data: { type: 'list', listId } });
   const { boardId } = useParams();
   const qc = useQueryClient();
@@ -96,8 +96,10 @@ export default function List({ title, listId, cards, bump }: Props) {
         const r = root.getBoundingClientRect();
         setMenuPos({ x: e.clientX - r.left, y: e.clientY - r.top });
       }}
-      className={`relative w-80 bg-bg-card text-fg rounded-xl border border-border p-3 shadow-card transition-transform duration-200 will-change-transform hover:scale-[1.01] ${
-        bump && !modalOpen ? 'animate-jiggle scale-[1.015]' : ''
+      className={`relative w-80 bg-bg-card text-fg rounded-xl border p-3 shadow-card transition-transform duration-200 will-change-transform hover:scale-[1.01] ${
+        bump && !modalOpen ? 'animate-jiggle scale-[1.015] border-border' : 
+        highlighted && !modalOpen ? 'border-blue-400 dark:border-blue-500 scale-[1.01] shadow-lg' :
+        'border-border'
       }`}
     >
       <div

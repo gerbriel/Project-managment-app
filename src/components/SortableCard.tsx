@@ -56,7 +56,8 @@ export default function SortableCard({ card, dragging }: Props) {
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.6 : undefined,
+    // Hide the original card completely when dragging so only the overlay is visible
+    opacity: isDragging ? 0 : undefined,
   };
 
   const overdue = Boolean(card.date_end && new Date(card.date_end) < new Date());
@@ -69,7 +70,7 @@ export default function SortableCard({ card, dragging }: Props) {
       }}
       style={style}
       data-list-id={card.list_id}
-      className={`relative ${modalOpenGlobal ? '' : 'cursor-grab active:cursor-grabbing'} ${isDragging && !modalOpenGlobal ? 'animate-jiggle' : ''}`}
+      className={`relative ${modalOpenGlobal ? '' : 'cursor-grab active:cursor-grabbing'} ${isDragging && !modalOpenGlobal ? '' : ''}`}
       {...(modalOpenGlobal ? {} : attributes)}
       {...(modalOpenGlobal ? {} : listeners)}
       onContextMenu={(e) => {
